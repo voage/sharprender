@@ -1,0 +1,159 @@
+[
+  {
+    "data": {
+      "requestId": "6467.556",
+      "loaderId": "A71CEDEE0AE832FE73ADFB4A16F431C5",
+      "documentURL": "https://www.ycombinator.com/",
+      "request": {
+        "url": "https://www.ycombinator.com/vite/assets/why-yc-new-full-res-B8TvYziy.webp",
+        "method": "GET",
+        "headers": {
+          "sec-ch-ua-platform": "\"macOS\"",
+          "Referer": "https://www.ycombinator.com/",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/129.0.0.0 Safari/537.36",
+          "sec-ch-ua": "\"Google Chrome\";v=\"129\", \"Not=A?Brand\";v=\"8\", \"Chromium\";v=\"129\"",
+          "sec-ch-ua-mobile": "?0"
+        },
+        "mixedContentType": "none",
+        "initialPriority": "Low",
+        "referrerPolicy": "strict-origin-when-cross-origin",
+        "isSameSite": true
+      },
+      "timestamp": 765056.086095,
+      "wallTime": 1729433039,
+      "initiator": {
+        "type": "parser",
+        "url": "https://www.ycombinator.com/",
+        "lineNumber": 323,
+        "columnNumber": 150790
+      },
+      "redirectHasExtraInfo": false,
+      "type": "Image",
+      "frameId": "6A34824BE5EE5091EC15D247A0378F4F"
+    },
+    "event_type": "request_will_be_sent"
+  },
+  {
+    "data": {
+      "requestId": "6467.558",
+      "loaderId": "A71CEDEE0AE832FE73ADFB4A16F431C5",
+      "timestamp": 765056.131405,
+      "type": "Image",
+      "response": {
+        "url": "https://bookface-static.ycombinator.com/assets/ycdc/startups/airbnb-423deceb57ea913e2f3a39a1c2b6ecb690f019933b4d767ac91121777aa59107.png",
+        "status": 200,
+        "statusText": "",
+        "headers": {
+          "content-type": "image/png",
+          "vary": "Origin",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "server": "AmazonS3",
+          "x-cache": "Hit from cloudfront",
+          "x-amz-cf-id": "DC7L5x3wE-yKdXyVZHTma73N-XcrNmvHP82ZkcVmC8JPcfmSPl7LRA==",
+          "last-modified": "Sat, 19 Oct 2024 17:43:01 GMT",
+          "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+          "content-length": "11241",
+          "etag": "\"d4fc1d2269fca0e600cab9dd9d3e5ac4\"",
+          "age": "72459",
+          "date": "Sat, 19 Oct 2024 17:56:21 GMT",
+          "via": "1.1 079527ead7cc050bf1f2ccf779327b56.cloudfront.net (CloudFront)",
+          "accept-ranges": "bytes",
+          "x-amz-cf-pop": "YVR52-P1",
+          "x-amz-server-side-encryption": "AES256"
+        },
+        "mimeType": "image/png",
+        "charset": "",
+        "connectionReused": true,
+        "connectionId": 1362,
+        "remoteIPAddress": "18.172.185.107",
+        "remotePort": 443,
+        "encodedDataLength": 438,
+        "timing": {
+          "requestTime": 765056.08731,
+          "proxyStart": -1,
+          "proxyEnd": -1,
+          "dnsStart": -1,
+          "dnsEnd": -1,
+          "connectStart": -1,
+          "connectEnd": -1,
+          "sslStart": -1,
+          "sslEnd": -1,
+          "workerStart": -1,
+          "workerReady": -1,
+          "workerFetchStart": -1,
+          "workerRespondWithSettled": -1,
+          "sendStart": 1.469,
+          "sendEnd": 9.185,
+          "pushStart": 0,
+          "pushEnd": 0,
+          "receiveHeadersStart": 24.213,
+          "receiveHeadersEnd": 24.242
+        },
+        "responseTime": 1729433039810,
+        "protocol": "h2",
+        "alternateProtocolUsage": "unspecifiedReason",
+        "securityState": "secure",
+        "securityDetails": {
+          "protocol": "TLS 1.3",
+          "keyExchange": "",
+          "keyExchangeGroup": "X25519",
+          "cipher": "AES_128_GCM",
+          "certificateId": 0,
+          "subjectName": "bookface-static.ycombinator.com",
+          "sanList": [
+            "bookface-static.ycombinator.com"
+          ],
+          "issuer": "Amazon RSA 2048 M02",
+          "validFrom": 1711584000,
+          "validTo": 1745711999,
+          "signedCertificateTimestampList": [
+            {
+              "status": "Verified",
+              "origin": "Embedded in certificate",
+              "logDescription": "Google 'Argon2025h1' log",
+              "logId": "4E75A3275C9A10C3385B6CD4DF3F52EB1DF0E08E1B8D69C0B1FA64B1629A39DF",
+              "timestamp": 1.711666152604e+12,
+              "hashAlgorithm": "SHA-256",
+              "signatureAlgorithm": "ECDSA",
+              "signatureData": "3046022100D355CAAEF70B3371EF85B0E5B7739D48B6EF05B78CCB0D64241F2C5FA9178A6F022100A635D54ED48AC26165AD51E222CF09B44D2754FB0C7933C91C475ADA1D1C04EA"
+            },
+            {
+              "status": "Verified",
+              "origin": "Embedded in certificate",
+              "logDescription": "DigiCert Yeti2025 Log",
+              "logId": "7D591E12E1782A7B1C61677C5EFDF8D0875C14A04E959EB9032FD90E8C2E79B8",
+              "timestamp": 1.711666152445e+12,
+              "hashAlgorithm": "SHA-256",
+              "signatureAlgorithm": "ECDSA",
+              "signatureData": "3045022000FCA626AE6FA21ACCEB4CDF43267F237C11E87031C62A5EBC2F3613ADE8CAA2022100FEC260E68FBB0827EDAB5EDAE4EAB8E352D7C81E52D6E5099E049515262624FE"
+            },
+            {
+              "status": "Verified",
+              "origin": "Embedded in certificate",
+              "logDescription": "DigiCert Nessie2025 Log",
+              "logId": "E6D2316340778CC1104106D771B9CEC1D240F6968486FBBA87321DFD1E378E50",
+              "timestamp": 1.711666152467e+12,
+              "hashAlgorithm": "SHA-256",
+              "signatureAlgorithm": "ECDSA",
+              "signatureData": "304602210080A0A15CA1CF793681743A69ACCDF6E7384805775C45FAD55AFED5ED3FAA5E85022100DF953172AC3D54F8368D3064CDB4E70A1EEDDBCEF63BCADE4A3DAAE32D15B629"
+            }
+          ],
+          "certificateTransparencyCompliance": "compliant",
+          "serverSignatureAlgorithm": 2052,
+          "encryptedClientHello": false
+        }
+      },
+      "hasExtraInfo": true,
+      "frameId": "6A34824BE5EE5091EC15D247A0378F4F"
+    },
+    "event_type": "response_received"
+  },
+  {
+    "data": {
+      "requestId": "6467.66",
+      "timestamp": 765055.415446,
+      "encodedDataLength": 1254
+    },
+    "event_type": "loading_finished"
+  }
+]

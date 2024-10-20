@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/chromedp/cdproto/network"
@@ -57,6 +58,7 @@ func (s *Scraper) ScrapeImages(ctx context.Context, url string) ([]Image, error)
 	err := chromedp.Run(ctx,
 		chromedp.Navigate(url),
 		chromedp.Sleep(s.timeout),
+		network.Enable(),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			var result []map[string]interface{}
 			if err := chromedp.Evaluate(evalScript, &result).Do(ctx); err != nil {
@@ -79,6 +81,9 @@ func (s *Scraper) ScrapeImages(ctx context.Context, url string) ([]Image, error)
 				if netImg, ok := imageURLs[src]; ok {
 					img.Format = netImg.Format
 					img.Size = netImg.Size
+					img.Network = netImg.Network
+					img.Timing = netImg.Timing
+					img.Cache = netImg.Cache
 				}
 
 				images = append(images, *img)
@@ -96,21 +101,91 @@ func (s *Scraper) ScrapeImages(ctx context.Context, url string) ([]Image, error)
 
 func handleImageEvents(ev interface{}, imageURLs map[string]Image, imageRequestIDToURL map[network.RequestID]string) {
 	switch ev := ev.(type) {
+	case *network.EventRequestWillBeSent:
+		if ev.Type == network.ResourceTypeImage {
+			handleRequestWillBeSent(ev, imageURLs, imageRequestIDToURL)
+		}
+
 	case *network.EventResponseReceived:
 		if ev.Type == network.ResourceTypeImage {
-			img := Image{
-				Src: ev.Response.URL,
-			}
-			img.Format = ev.Response.MimeType[len(mimeTypeImagePrefix):]
-			imageURLs[ev.Response.URL] = img
-			imageRequestIDToURL[ev.RequestID] = ev.Response.URL
+			handleResponseReceived(ev, imageURLs)
 		}
+
 	case *network.EventLoadingFinished:
-		if url, ok := imageRequestIDToURL[ev.RequestID]; ok {
-			if img, exists := imageURLs[url]; exists {
-				img.Size = int(ev.EncodedDataLength)
-				imageURLs[url] = img
-			}
+		handleLoadingFinished(ev, imageURLs, imageRequestIDToURL)
+	}
+}
+
+func handleRequestWillBeSent(ev *network.EventRequestWillBeSent, imageURLs map[string]Image, imageRequestIDToURL map[network.RequestID]string) {
+	url := ev.Request.URL
+	img := imageURLs[url]
+
+	img.Network.RequestID = string(ev.RequestID)
+	img.Network.DocumentURL = ev.DocumentURL
+	img.Network.Method = ev.Request.Method
+	img.Network.RequestTime = ev.WallTime
+
+	if ev.Initiator != nil {
+		img.Network.InitiatorType = string(ev.Initiator.Type)
+		img.Network.InitiatorURL = ev.Initiator.URL
+		img.Network.InitiatorLineNo = int(ev.Initiator.LineNumber)
+		img.Network.InitiatorColNo = int(ev.Initiator.ColumnNumber)
+	}
+
+	imageURLs[url] = img
+	imageRequestIDToURL[ev.RequestID] = url
+}
+
+func handleResponseReceived(ev *network.EventResponseReceived, imageURLs map[string]Image) {
+	url := ev.Response.URL
+	img := imageURLs[url]
+
+	img.Network.Status = int(ev.Response.Status)
+	img.Network.MimeType = ev.Response.MimeType
+	img.Format = ev.Response.MimeType[len(mimeTypeImagePrefix):]
+	img.Network.Protocol = ev.Response.Protocol
+	img.Network.RemoteIPAddress = ev.Response.RemoteIPAddress
+	img.Network.RemotePort = int(ev.Response.RemotePort)
+	img.Network.ResponseTime = ev.Timestamp
+
+	img.Cache.FromCache = ev.Response.FromDiskCache || ev.Response.FromPrefetchCache
+	img.Cache.CacheHit = ev.Response.FromDiskCache || ev.Response.FromPrefetchCache
+
+	handleCacheHeaders(ev.Response.Headers, &img.Cache)
+
+	imageURLs[url] = img
+}
+
+func handleLoadingFinished(ev *network.EventLoadingFinished, imageURLs map[string]Image, imageRequestIDToURL map[network.RequestID]string) {
+	if url, ok := imageRequestIDToURL[ev.RequestID]; ok {
+		if img, exists := imageURLs[url]; exists {
+			img.Network.EncodedDataLength = int(ev.EncodedDataLength)
+			img.Size = int(ev.EncodedDataLength)
+			imageURLs[url] = img
 		}
+	}
+}
+
+func handleCacheHeaders(headers map[string]interface{}, cache *CacheInfo) {
+	if cacheState, ok := headers["x-cache"]; ok {
+		cache.CacheState = cacheState.(string)
+	}
+	if age, ok := headers["age"]; ok {
+		cache.Age, _ = strconv.Atoi(age.(string))
+	}
+	if expires, ok := headers["expires"]; ok {
+		cache.ExpirationTime = expires.(string)
+	}
+	if lastModified, ok := headers["last-modified"]; ok {
+		cache.LastModified = lastModified.(string)
+	}
+	if etag, ok := headers["etag"]; ok {
+		cache.ETag = etag.(string)
+	}
+
+	if cache.ETag != "" {
+		cache.CacheValidation = "ETag"
+	} else if cache.LastModified != "" {
+		cache.CacheValidation = "Last-Modified"
 	}
 }
