@@ -3,90 +3,114 @@ package scraper
 import (
 	"context"
 	"fmt"
-	"path"
-	"strings"
+	"log"
 	"time"
-	"net/http"
+
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
 
-type Image struct {
-	Src    string `json:"src"`
-	Alt    string `json:"alt"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
-	Format string `json:"format"`
-	Size   int    `json:"size"`
+const (
+	defaultTimeout = 2 * time.Second
+	evalScript     = `
+		Array.from(document.images).map(img => ({
+			src: img.src,
+			alt: img.alt,
+			width: img.width,
+			height: img.height
+		}))
+	`
+)
+
+// Housekeeping stuff
+type Scraper struct {
+	timeout time.Duration
 }
 
-func getImageFormat(src string) string {
-	// Check if the image is a base64-encoded image
-	if strings.HasPrefix(src, "data:image/") {
-		// Extract the format from the data URL (e.g., "data:image/png;base64,...")
-		parts := strings.Split(src, ";")
-		if len(parts) > 0 && strings.HasPrefix(parts[0], "data:image/") {
-			return strings.TrimPrefix(parts[0], "data:image/")
-		}
-		return "none"
+func NewScraper() *Scraper {
+	return &Scraper{
+		timeout: defaultTimeout,
 	}
-	ext := strings.ToLower(path.Ext(src))
-	if len(ext) > 1 {
-		return ext[1:] // remove dot
-	}
-
-	return "unknown" // if no extension
 }
 
-func getImageSize(src string) int {
-	resp, err := http.Head(src)
-	if err != nil {
-		fmt.Println("Error getting image size:", err)
-		return 0
-	}
-	defer resp.Body.Close()
-	size := resp.Header.Get("Content-Length")
-	if size == "" {
-		fmt.Println("Error getting image size: no Content-Length header")
-		return 0
-	}
-	var sizeInt int
-	_, err = fmt.Sscanf(size, "%d", &sizeInt)
-	if err != nil {
-		return 0
-		fmt.Println("Error parsing image size:", err)
-	}
-	return sizeInt/1024 
+func (s *Scraper) SetTimeout(timeout time.Duration) {
+	s.timeout = timeout
 }
-func Scrape() {
 
-	ctx, cancel := chromedp.NewContext(context.Background())
+// Bread and butter
+func (s *Scraper) Scrape(url string) ([]*Image, error) {
+	if s.timeout == 0 {
+		s.timeout = defaultTimeout
+	}
+
+	ctx, cancel := chromedp.NewContext(
+		context.Background(),
+		chromedp.WithLogf(log.Printf),
+	)
 	defer cancel()
 
-	url := "https://www.ycombinator.com"
-	var images []Image
+	imageURLs := make(map[string]*Image)
+	imageRequestIDToURL := make(map[network.RequestID]string)
+
+	chromedp.ListenTarget(ctx, func(ev interface{}) {
+		switch ev := ev.(type) {
+		case *network.EventResponseReceived:
+			if ev.Type == network.ResourceTypeImage {
+				img, err := NewImage(ev.Response.URL, "", 0, 0, "", 0)
+				if err != nil {
+					return
+				}
+
+				imageURLs[ev.Response.URL] = img
+
+				img.Format = ev.Response.MimeType[6:]
+				imageRequestIDToURL[ev.RequestID] = ev.Response.URL
+
+			}
+		case *network.EventLoadingFinished:
+			if img, ok := imageURLs[imageRequestIDToURL[ev.RequestID]]; ok {
+				img.Size = int(ev.EncodedDataLength)
+			}
+
+		}
+	})
+
+	var images []*Image
+
 	err := chromedp.Run(ctx,
 		chromedp.Navigate(url),
-		chromedp.Sleep(1*time.Second),
-		chromedp.Evaluate(`
-			Array.from(document.querySelectorAll('img')).map(img => ({
-				src: img.src,
-				alt: img.alt,
-				width: img.naturalWidth || img.width,
-				height: img.naturalHeight || img.height
-			}))
-		`, &images),
+		chromedp.Sleep(s.timeout),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			var result []map[string]interface{}
+			err := chromedp.Evaluate(evalScript, &result).Do(ctx)
+
+			if err != nil {
+				return err
+			}
+
+			for _, imgData := range result {
+				src := imgData["src"].(string)
+				img, err := NewImage(src, imgData["alt"].(string), int(imgData["width"].(float64)), int(imgData["height"].(float64)), "", 0)
+				if err != nil {
+					return err
+				}
+
+				if networkImg, ok := imageURLs[src]; ok {
+					img.Format = networkImg.Format
+					img.Size = networkImg.Size
+				}
+
+				images = append(images, img)
+			}
+
+			return nil
+		}),
 	)
+
 	if err != nil {
 		fmt.Println("Error scraping images:", err)
-		return
+		return nil, err
 	}
-	for i := range images {
-		images[i].Format = getImageFormat(images[i].Src)
-		images[i].Size = getImageSize(images[i].Src)
-	}
-	for _, img := range images {
-		fmt.Printf("Src: %s, Alt: %s, Width: %d, Height: %d, Format: %s, Size: %d\n\n", img.Src, img.Alt, img.Width, img.Height, img.Format, img.Size)
-	}
-	fmt.Println(images)
 
+	return images, nil
 }
