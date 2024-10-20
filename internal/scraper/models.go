@@ -1,8 +1,6 @@
 package scraper
 
 import (
-	"fmt"
-
 	"github.com/chromedp/cdproto/cdp"
 )
 
@@ -56,9 +54,4 @@ type CacheInfo struct {
 	ExpirationTime  string `json:"expiration_time,omitempty"`
 	LastModified    string `json:"last_modified,omitempty"`
 	ETag            string `json:"etag,omitempty"`
-}
-
-func (i Image) String() string {
-	return fmt.Sprintf("Image{Src: %s, Alt: %s, Width: %d, Height: %d, Format: %s, Size: %d, RequestID: %s, TotalTime: %.2f, FromCache: %v, CacheHit: %v}",
-		i.Src, i.Alt, i.Width, i.Height, i.Format, i.Size, i.Network.RequestID, i.Timing.TotalTime, i.Cache.FromCache, i.Cache.CacheHit)
 }

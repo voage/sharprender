@@ -1,18 +1,32 @@
 package main
 
 import (
-	"context"
 	"log"
+	"net/http"
+	"os"
 
-	"github.com/voage/sharprender-api/internal/scraper"
+	"github.com/go-chi/chi/v5"
+	"github.com/joho/godotenv"
+	api "github.com/voage/sharprender-api/http"
 )
 
 func main() {
-	scraper := scraper.NewScraper()
+	router := chi.NewRouter()
+	api.SetupRoutes(router)
 
-	_, err := scraper.ScrapeImages(context.Background(), "https://www.ycombinator.com")
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Error scraping: %v", err)
+		log.Fatalf("Error loading .env file: %s", err)
 	}
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Starting server on :%s...", port)
+	err = http.ListenAndServe(":"+port, router)
+	if err != nil {
+		log.Fatalf("Error starting server: %s", err)
+	}
 }
