@@ -73,9 +73,9 @@ func (s *Scraper) ScrapeImages(ctx context.Context, url string) ([]Image, error)
 
 				img := &Image{
 					Src:    src,
-					Alt:    SafeString(imgData["alt"]),
-					Width:  SafeInt(imgData["width"]),
-					Height: SafeInt(imgData["height"]),
+					Alt:    safeString(imgData["alt"]),
+					Width:  safeInt(imgData["width"]),
+					Height: safeInt(imgData["height"]),
 				}
 
 				if netImg, ok := imageURLs[src]; ok {
@@ -188,4 +188,18 @@ func handleCacheHeaders(headers map[string]interface{}, cache *CacheInfo) {
 	} else if cache.LastModified != "" {
 		cache.CacheValidation = "Last-Modified"
 	}
+}
+
+func safeString(val interface{}) string {
+	if str, ok := val.(string); ok {
+		return str
+	}
+	return ""
+}
+
+func safeInt(val interface{}) int {
+	if num, ok := val.(float64); ok {
+		return int(num)
+	}
+	return 0
 }
