@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
-
+	"path"
+	"strings"
 	"github.com/chromedp/chromedp"
 )
 
@@ -17,6 +18,23 @@ type Image struct {
 	Size   int    `json:"size"`
 }
 
+func getImageFormat(src string) string {
+	// Check if the image is a base64-encoded image
+	if strings.HasPrefix(src, "data:image/") {
+		// Extract the format from the data URL (e.g., "data:image/png;base64,...")
+		parts := strings.Split(src, ";")
+		if len(parts) > 0 && strings.HasPrefix(parts[0], "data:image/") {
+			return strings.TrimPrefix(parts[0], "data:image/")
+		}
+		return "none"
+	}
+	ext := strings.ToLower(path.Ext(src))
+	if len(ext) > 1 {
+		return ext[1:] // remove dot
+	}
+
+	return "unknown"	// if no extension
+}
 func Scrape() {
 
 	ctx, cancel := chromedp.NewContext(context.Background())
@@ -40,8 +58,10 @@ func Scrape() {
 		fmt.Println("Error scraping images:", err)
 		return
 	}
+	for i := range images {
+		images[i].Format = getImageFormat(images[i].Src)	}
 	for _, img := range images {
-		fmt.Printf("Src: %s, Alt: %s, Width: %d, Height: %d\n", img.Src, img.Alt, img.Width, img.Height)
+		fmt.Printf("Src: %s, Alt: %s, Width: %d, Height: %d\n, Format: %s\n", img.Src, img.Alt, img.Width, img.Height, img.Format)
 	}
 	fmt.Println(images)
 
