@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -10,7 +11,7 @@ import (
 func main() {
 	scraper := scraper.NewScraper()
 
-	images, err := scraper.Scrape("https://www.ycombinator.com")
+	images, err := scraper.ScrapeImages(context.Background(), "https://www.ycombinator.com")
 	if err != nil {
 		log.Fatalf("Error scraping: %v", err)
 	}

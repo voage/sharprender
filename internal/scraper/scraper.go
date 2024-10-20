@@ -20,9 +20,9 @@ const (
 			height: img.height
 		}))
 	`
+	mimeTypeImagePrefix = "image/"
 )
 
-// Housekeeping stuff
 type Scraper struct {
 	timeout time.Duration
 }
@@ -37,80 +37,80 @@ func (s *Scraper) SetTimeout(timeout time.Duration) {
 	s.timeout = timeout
 }
 
-// Bread and butter
-func (s *Scraper) Scrape(url string) ([]*Image, error) {
-	if s.timeout == 0 {
-		s.timeout = defaultTimeout
+func (s *Scraper) ScrapeImages(ctx context.Context, url string) ([]Image, error) {
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	ctx, cancel := chromedp.NewContext(
-		context.Background(),
-		chromedp.WithLogf(log.Printf),
-	)
+	ctx, cancel := chromedp.NewContext(ctx, chromedp.WithLogf(log.Printf))
 	defer cancel()
 
-	imageURLs := make(map[string]*Image)
+	imageURLs := make(map[string]Image)
 	imageRequestIDToURL := make(map[network.RequestID]string)
 
 	chromedp.ListenTarget(ctx, func(ev interface{}) {
-		switch ev := ev.(type) {
-		case *network.EventResponseReceived:
-			if ev.Type == network.ResourceTypeImage {
-				img, err := NewImage(ev.Response.URL, "", 0, 0, "", 0)
-				if err != nil {
-					return
-				}
-
-				imageURLs[ev.Response.URL] = img
-
-				img.Format = ev.Response.MimeType[6:]
-				imageRequestIDToURL[ev.RequestID] = ev.Response.URL
-
-			}
-		case *network.EventLoadingFinished:
-			if img, ok := imageURLs[imageRequestIDToURL[ev.RequestID]]; ok {
-				img.Size = int(ev.EncodedDataLength)
-			}
-
-		}
+		handleImageEvents(ev, imageURLs, imageRequestIDToURL)
 	})
 
-	var images []*Image
+	var images []Image
 
 	err := chromedp.Run(ctx,
 		chromedp.Navigate(url),
 		chromedp.Sleep(s.timeout),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			var result []map[string]interface{}
-			err := chromedp.Evaluate(evalScript, &result).Do(ctx)
-
-			if err != nil {
+			if err := chromedp.Evaluate(evalScript, &result).Do(ctx); err != nil {
 				return err
 			}
 
 			for _, imgData := range result {
-				src := imgData["src"].(string)
-				img, err := NewImage(src, imgData["alt"].(string), int(imgData["width"].(float64)), int(imgData["height"].(float64)), "", 0)
-				if err != nil {
-					return err
+				src, ok := imgData["src"].(string)
+				if !ok {
+					continue
 				}
 
-				if networkImg, ok := imageURLs[src]; ok {
-					img.Format = networkImg.Format
-					img.Size = networkImg.Size
+				img := &Image{
+					Src:    src,
+					Alt:    SafeString(imgData["alt"]),
+					Width:  SafeInt(imgData["width"]),
+					Height: SafeInt(imgData["height"]),
 				}
 
-				images = append(images, img)
+				if netImg, ok := imageURLs[src]; ok {
+					img.Format = netImg.Format
+					img.Size = netImg.Size
+				}
+
+				images = append(images, *img)
 			}
-
 			return nil
 		}),
 	)
 
 	if err != nil {
-		fmt.Println("Error scraping images:", err)
-		return nil, err
+		return nil, fmt.Errorf("error scraping images: %w", err)
 	}
 
 	return images, nil
+}
+
+func handleImageEvents(ev interface{}, imageURLs map[string]Image, imageRequestIDToURL map[network.RequestID]string) {
+	switch ev := ev.(type) {
+	case *network.EventResponseReceived:
+		if ev.Type == network.ResourceTypeImage {
+			img := Image{
+				Src: ev.Response.URL,
+			}
+			img.Format = ev.Response.MimeType[len(mimeTypeImagePrefix):]
+			imageURLs[ev.Response.URL] = img
+			imageRequestIDToURL[ev.RequestID] = ev.Response.URL
+		}
+	case *network.EventLoadingFinished:
+		if url, ok := imageRequestIDToURL[ev.RequestID]; ok {
+			if img, exists := imageURLs[url]; exists {
+				img.Size = int(ev.EncodedDataLength)
+				imageURLs[url] = img
+			}
+		}
+	}
 }
