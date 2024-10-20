@@ -3,9 +3,10 @@ package scraper
 import (
 	"context"
 	"fmt"
-	"time"
 	"path"
 	"strings"
+	"time"
+	"net/http"
 	"github.com/chromedp/chromedp"
 )
 
@@ -33,7 +34,28 @@ func getImageFormat(src string) string {
 		return ext[1:] // remove dot
 	}
 
-	return "unknown"	// if no extension
+	return "unknown" // if no extension
+}
+
+func getImageSize(src string) int {
+	resp, err := http.Head(src)
+	if err != nil {
+		fmt.Println("Error getting image size:", err)
+		return 0
+	}
+	defer resp.Body.Close()
+	size := resp.Header.Get("Content-Length")
+	if size == "" {
+		fmt.Println("Error getting image size: no Content-Length header")
+		return 0
+	}
+	var sizeInt int
+	_, err = fmt.Sscanf(size, "%d", &sizeInt)
+	if err != nil {
+		return 0
+		fmt.Println("Error parsing image size:", err)
+	}
+	return sizeInt/1024 
 }
 func Scrape() {
 
@@ -59,9 +81,11 @@ func Scrape() {
 		return
 	}
 	for i := range images {
-		images[i].Format = getImageFormat(images[i].Src)	}
+		images[i].Format = getImageFormat(images[i].Src)
+		images[i].Size = getImageSize(images[i].Src)
+	}
 	for _, img := range images {
-		fmt.Printf("Src: %s, Alt: %s, Width: %d, Height: %d\n, Format: %s\n", img.Src, img.Alt, img.Width, img.Height, img.Format)
+		fmt.Printf("Src: %s, Alt: %s, Width: %d, Height: %d, Format: %s, Size: %d\n\n", img.Src, img.Alt, img.Width, img.Height, img.Format, img.Size)
 	}
 	fmt.Println(images)
 
