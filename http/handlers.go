@@ -1,13 +1,17 @@
 package http
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
 
-	"github.com/voage/sharprender-api/internal/scraper"
+	"github.com/voage/sharprender-api/internal/imagescraper"
 )
+
+type ScraperResponse struct {
+	Overview imagescraper.ImageOverview `json:"overview"`
+	Images   []imagescraper.Image       `json:"images"`
+}
 
 func getScraperResults(w http.ResponseWriter, r *http.Request) {
 	urlParam := r.URL.Query().Get("url")
@@ -22,15 +26,22 @@ func getScraperResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scraper := scraper.NewScraper()
+	imageScraper := imagescraper.NewImageScraper()
 
-	results, err := scraper.ScrapeImages(context.Background(), urlParam)
+	results, err := imageScraper.ScrapeImages(r.Context(), urlParam)
 	if err != nil {
 		http.Error(w, "Failed to scrape", http.StatusInternalServerError)
 		return
 	}
 
+	overview := imagescraper.GetImageOverview(results)
+
+	response := ScraperResponse{
+		Overview: overview,
+		Images:   results,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(results)
+	json.NewEncoder(w).Encode(response)
 }

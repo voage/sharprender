@@ -1,3 +1,3 @@
-package scraper_test
+package imagescraper_test
 
 // TODO: Implement tests

@@ -1,4 +1,4 @@
-package scraper
+package imagescraper
 
 import (
 	"context"
@@ -21,24 +21,23 @@ const (
 			height: img.height
 		}))
 	`
-	mimeTypeImagePrefix = "image/"
 )
 
-type Scraper struct {
+type ImageScraper struct {
 	timeout time.Duration
 }
 
-func NewScraper() *Scraper {
-	return &Scraper{
+func NewImageScraper() *ImageScraper {
+	return &ImageScraper{
 		timeout: defaultTimeout,
 	}
 }
 
-func (s *Scraper) SetTimeout(timeout time.Duration) {
+func (s *ImageScraper) SetTimeout(timeout time.Duration) {
 	s.timeout = timeout
 }
 
-func (s *Scraper) ScrapeImages(ctx context.Context, url string) ([]Image, error) {
+func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -142,7 +141,7 @@ func handleResponseReceived(ev *network.EventResponseReceived, imageURLs map[str
 
 	img.Network.Status = int(ev.Response.Status)
 	img.Network.MimeType = ev.Response.MimeType
-	img.Format = ev.Response.MimeType[len(mimeTypeImagePrefix):]
+	img.Format = ev.Response.MimeType
 	img.Network.Protocol = ev.Response.Protocol
 	img.Network.RemoteIPAddress = ev.Response.RemoteIPAddress
 	img.Network.RemotePort = int(ev.Response.RemotePort)

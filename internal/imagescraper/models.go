@@ -1,4 +1,4 @@
-package scraper
+package imagescraper
 
 import (
 	"github.com/chromedp/cdproto/cdp"
@@ -54,4 +54,17 @@ type CacheInfo struct {
 	ExpirationTime  string `json:"expiration_time,omitempty"`
 	LastModified    string `json:"last_modified,omitempty"`
 	ETag            string `json:"etag,omitempty"`
+}
+
+type ImageOverview struct {
+	TotalImages         int            `json:"total_images"`
+	TotalSize           int            `json:"total_size"`
+	AverageSize         int            `json:"average_size"`
+	AverageWidth        int            `json:"average_width"`
+	AverageHeight       int            `json:"average_height"`
+	Formats             map[string]int `json:"formats"`
+	CacheHits           int            `json:"cache_hits"`
+	AverageRequestTime  float64        `json:"average_request_time"`
+	AverageResponseTime float64        `json:"average_response_time"`
+	AverageTotalTime    float64        `json:"average_total_time"`
 }
