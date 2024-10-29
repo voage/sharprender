@@ -5,7 +5,7 @@ type Recommendation struct {
 	ResizeRecommendations      string `json:"resize_recommendations"`
 	CompressionRecommendations string `json:"compression_recommendations"`
 	CachingRecommendations     string `json:"caching_recommendations"`
-	AdditionalRecoomendations  string `json:"other_recommendations"`
+	AdditionalRecommendations  string `json:"other_recommendations"`
 }
 type AIRequest struct {
 	Recommendations []Recommendation `json:"rec"`

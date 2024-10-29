@@ -60,14 +60,14 @@ Width: %d pixels
 Height: %d pixels
 File Size: %d bytes
 
-As an expert in image optimization, provide recommendations on optimizing this image. Output **only** the following JSON object, with no additional text, explanations, or formatting:
+As an expert in image optimization, provide recommendations on optimizing this image. Make it as descriptive as possible. Output **only** the following JSON object, with no additional text, explanations, or formatting:
 
 {
     "format_recommendations": "string",
     "resize_recommendations": "string",
     "compression_recommendations": "string",
     "caching_recommendations": "string",
-    "additional_recommendations": "string"
+	"other_recommendations": "string", 
 }
 
 Respond **only** with this JSON structure, without code blocks, extra text, or markdown.`,
