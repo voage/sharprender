@@ -11,7 +11,7 @@ func SetupRoutes(r chi.Router) {
 
 	r.Get("/scrape", getScraperResults)
 
-	r.Get("airecommendations", getAIReccomendationsResults)
+	r.Get("/airecommendations", getAIReccomendationsResults)
 }
 
 func pingHandler(w http.ResponseWriter, r *http.Request) {
