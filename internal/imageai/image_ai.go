@@ -1,21 +1,94 @@
 package imageai
 
-func GenerateRecommendations(i Image) {
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
 
-	// gonna generate some awesome recommendations
-	// first do it for one image ( use for loop to loop through images and then repeatedly call this function for responses)
-	// add concurrency later
+	"github.com/sashabaranov/go-openai"
+	"github.com/voage/sharprender-api/internal/imagescraper"
+)
+
+func GetRecommendations(image imagescraper.Image, apiKey string) (*Recommendation, error) {
+
+	client := openai.NewClient(apiKey)
+
+	prompt := generatePrompt(image)
+
+	req := openai.ChatCompletionRequest{
+		Model: openai.GPT3Dot5Turbo,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleSystem,
+				Content: "You are an expert in image optimization. When you respond, provide only the JSON object specified, with no additional text, explanations, or formatting. Do not include any narrative, preamble, or code blocks.",
+			},
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: prompt,
+			},
+		},
+	}
+
+	resp, err := client.CreateChatCompletion(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+
+	recommendation, err := parseResponse(resp.Choices[0].Message.Content)
+	if err != nil {
+		return nil, err
+	}
+	return recommendation, nil
 }
 
-func prompt (i Image) string {
-	// returns prompt with all image info that we are gonna ask gpt
+func generatePrompt(image imagescraper.Image) string {
+	prompt := fmt.Sprintf(
+		`Given the following image properties:
+
+Source URL: %s
+Alt Text: %s
+Format: %s
+Width: %d pixels
+Height: %d pixels
+File Size: %d bytes
+
+As an expert in image optimization, provide recommendations on optimizing this image. Output **only** the following JSON object, with no additional text, explanations, or formatting:
+
+{
+    "format_recommendations": "string",
+    "resize_recommendations": "string",
+    "compression_recommendations": "string",
+    "caching_recommendations": "string",
+    "additional_recommendations": "string"
 }
 
-func apiCall () {
-	// api req to openai
+Respond **only** with this JSON structure, without code blocks, extra text, or markdown.`,
+		image.Src,
+		image.Alt,
+		image.Format,
+		image.Width,
+		image.Height,
+		image.Size,
+	)
+	return prompt
 }
 
-func handleResponse() {
-	// parse raw response into usable recommendations that we can display on the frontend
-}
+func parseResponse(reply string) (*Recommendation, error) {
+	
+	jsonStart := strings.Index(reply, "{")
+	jsonEnd := strings.LastIndex(reply, "}")
 
+	if jsonStart == -1 || jsonEnd == -1 {
+		return nil, fmt.Errorf("no valid JSON found in response")
+	}
+
+	jsonStr := reply[jsonStart : jsonEnd+1]
+
+	var recommendation Recommendation
+	err := json.Unmarshal([]byte(jsonStr), &recommendation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse AI response: %v\nResponse was: %s", err, jsonStr)
+	}
+	return &recommendation, nil
+}
