@@ -4,13 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 
 	"github.com/sashabaranov/go-openai"
 	"github.com/voage/sharprender-api/internal/imagescraper"
 )
 
-func GetRecommendations(image imagescraper.Image, apiKey string) (*Recommendation, error) {
+func GetRecommendations(image imagescraper.Image) (*Recommendation, error) {
+
+	apiKey := os.Getenv("OPENAI_KEY")
+	if apiKey == "" {
+		log.Fatalf("OPENAI_KEY not found")
+	}
 
 	client := openai.NewClient(apiKey)
 
@@ -75,7 +82,7 @@ Respond **only** with this JSON structure, without code blocks, extra text, or m
 }
 
 func parseResponse(reply string) (*Recommendation, error) {
-	
+
 	jsonStart := strings.Index(reply, "{")
 	jsonEnd := strings.LastIndex(reply, "}")
 
