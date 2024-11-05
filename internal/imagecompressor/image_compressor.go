@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
 	"github.com/h2non/bimg"
 	"github.com/voage/sharprender-api/internal/imagescraper"
 )
@@ -17,7 +18,7 @@ func CompressImages(ip ImageParams, i imagescraper.Image) error {
 		Type:    bimg.WEBP,
 	}
 
-	imageData, err := FetchImageData(i.Src)
+	imageData, err := fetchImageData(i.Src)
 	if err != nil {
 		return fmt.Errorf("failed to fetch image: %w", err)
 	}
@@ -27,14 +28,14 @@ func CompressImages(ip ImageParams, i imagescraper.Image) error {
 		return fmt.Errorf("failed to process image: %w", err)
 	}
 
-	err = SaveImages(newImage, i.Alt)
+	err = saveImages(newImage, i.Alt)
 	if err != nil {
 		return fmt.Errorf("failed to save image: %w", err)
 	}
 	return nil
 }
 
-func FetchImageData(src string) ([]byte, error) {
+func fetchImageData(src string) ([]byte, error) {
 	resp, err := http.Get(src)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image from URL: %w", err)
@@ -53,7 +54,7 @@ func FetchImageData(src string) ([]byte, error) {
 	return imageData, nil
 }
 
-func SaveImages(imageData []byte, alt string) error {
+func saveImages(imageData []byte, alt string) error {
 	outputPath := "compressed_" + alt + ".webp"
 	err := bimg.Write(outputPath, imageData)
 	if err != nil {
