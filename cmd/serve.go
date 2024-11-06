@@ -7,12 +7,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
-	api "github.com/voage/sharprender-api/http"
+	"github.com/voage/sharprender-api/shttp"
 )
 
 func main() {
 	router := chi.NewRouter()
-	api.SetupRoutes(router)
+	shttp.SetupRoutes(router)
 
 	err := godotenv.Load()
 	if err != nil {
@@ -23,7 +23,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	
 
 	log.Printf("Starting server on :%s...", port)
 	err = http.ListenAndServe(":"+port, router)
