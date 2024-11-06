@@ -1,4 +1,4 @@
-package imagescraper
+package image
 
 import (
 	"context"

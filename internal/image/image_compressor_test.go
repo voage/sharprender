@@ -1,14 +1,13 @@
-package imagecompressor
+package image
 
 import (
 	"os"
 	"testing"
 
-	"github.com/voage/sharprender-api/internal/imagescraper"
 )
 
 func TestCompressImages(t *testing.T) {
-	image := imagescraper.Image{
+	image := Image{
 		Src: "https://www.superherotoystore.com/cdn/shop/articles/e33c2fa94c03efa06678116f80d62d0d_708x.jpg?v=1590599656",
 		Alt: "test-image",
 	}

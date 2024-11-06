@@ -1,8 +1,27 @@
-package imagescraper
+package image
 
 import (
 	"github.com/chromedp/cdproto/cdp"
 )
+
+type Recommendation struct {
+	FormatRecommendations      string `json:"format_recommendations"`
+	ResizeRecommendations      string `json:"resize_recommendations"`
+	CompressionRecommendations string `json:"compression_recommendations"`
+	CachingRecommendations     string `json:"caching_recommendations"`
+	AdditionalRecommendations  string `json:"other_recommendations"`
+}
+type AIRequest struct {
+	Recommendations []Recommendation `json:"rec"`
+}
+type AIResponse struct {
+	Recs []Recommendation `json:"recs"`
+}
+type ImageParams struct {
+	Quality int
+	Width   int
+	Height  int
+}
 
 type Image struct {
 	Src    string `json:"src"`

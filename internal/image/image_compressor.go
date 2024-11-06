@@ -1,4 +1,4 @@
-package imagecompressor
+package image
 
 import (
 	"fmt"
@@ -6,10 +6,9 @@ import (
 	"net/http"
 
 	"github.com/h2non/bimg"
-	"github.com/voage/sharprender-api/internal/imagescraper"
 )
 
-func CompressImages(ip ImageParams, i imagescraper.Image) error {
+func CompressImages(ip ImageParams, i Image) error {
 
 	options := bimg.Options{
 		Width:   ip.Width,
