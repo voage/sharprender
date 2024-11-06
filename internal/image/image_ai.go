@@ -1,4 +1,4 @@
-package imageai
+package image
 
 import (
 	"context"
@@ -9,10 +9,9 @@ import (
 	"strings"
 
 	"github.com/sashabaranov/go-openai"
-	"github.com/voage/sharprender-api/internal/imagescraper"
 )
 
-func GetRecommendations(image imagescraper.Image) (*Recommendation, error) {
+func GetRecommendations(image Image) (*Recommendation, error) {
 
 	apiKey := os.Getenv("OPENAI_KEY")
 	if apiKey == "" {
@@ -49,7 +48,7 @@ func GetRecommendations(image imagescraper.Image) (*Recommendation, error) {
 	return recommendation, nil
 }
 
-func generatePrompt(image imagescraper.Image) string {
+func generatePrompt(image Image) string {
 	prompt := fmt.Sprintf(
 		`Given the following image properties:
 
