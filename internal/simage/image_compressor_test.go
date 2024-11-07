@@ -1,9 +1,8 @@
-package image
+package simage
 
 import (
 	"os"
 	"testing"
-
 )
 
 func TestCompressImages(t *testing.T) {

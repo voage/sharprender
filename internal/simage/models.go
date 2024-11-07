@@ -1,7 +1,8 @@
-package image
+package simage
 
 import (
 	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/network"
 )
 
 type Recommendation struct {
@@ -37,21 +38,22 @@ type Image struct {
 }
 
 type NetworkInfo struct {
-	RequestID         string              `json:"request_id"`
-	DocumentURL       string              `json:"document_url"`
-	InitiatorType     string              `json:"initiator_type"`
-	InitiatorURL      string              `json:"initiator_url"`
-	InitiatorLineNo   int                 `json:"initiator_line_no"`
-	InitiatorColNo    int                 `json:"initiator_col_no"`
-	Method            string              `json:"method"`
-	Status            int                 `json:"status"`
-	MimeType          string              `json:"mime_type"`
-	Protocol          string              `json:"protocol"`
-	RemoteIPAddress   string              `json:"remote_ip_address"`
-	RemotePort        int                 `json:"remote_port"`
-	EncodedDataLength int                 `json:"encoded_data_length"`
-	RequestTime       *cdp.TimeSinceEpoch `json:"request_time"`
-	ResponseTime      *cdp.MonotonicTime  `json:"response_time"`
+	RequestID         network.RequestID     `json:"request_id"`
+	DocumentURL       string                `json:"document_url"`
+	InitiatorType     network.InitiatorType `json:"initiator_type"`
+	InitiatorURL      string                `json:"initiator_url"`
+	InitiatorLineNo   float64               `json:"initiator_line_no"`
+	InitiatorColNo    float64               `json:"initiator_col_no"`
+	Method            string                `json:"method"`
+	Status            int64                 `json:"status"`
+	MimeType          string                `json:"mime_type"`
+	Protocol          string                `json:"protocol"`
+	RemoteIPAddress   string                `json:"remote_ip_address"`
+	RemotePort        int64                 `json:"remote_port"`
+	EncodedDataLength int                   `json:"encoded_data_length"`
+	RequestTime       *cdp.MonotonicTime    `json:"request_time"`
+	ResponseTime      *cdp.MonotonicTime    `json:"response_time"`
+	LoadTime          float64               `json:"load_time"`
 }
 
 type TimingInfo struct {

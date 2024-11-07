@@ -6,18 +6,17 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/voage/sharprender-api/internal/imageai"
-	"github.com/voage/sharprender-api/internal/imagescraper"
+	"github.com/voage/sharprender-api/internal/simage"
 )
 
 type ScraperResponse struct {
-	Overview        imagescraper.ImageOverview `json:"overview"`
-	Images          []imagescraper.Image       `json:"images"`
-	Recommendations *imageai.Recommendation    `json:"recommendations"`
+	Overview        simage.ImageOverview   `json:"overview"`
+	Images          []simage.Image         `json:"images"`
+	Recommendations *simage.Recommendation `json:"recommendations"`
 }
 
 type AIResponse struct {
-	Recommendations imageai.Recommendation `json:"recommendations"`
+	Recommendations simage.Recommendation `json:"recommendations"`
 }
 
 func getScraperResults(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +32,7 @@ func getScraperResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	imageScraper := imagescraper.NewImageScraper()
+	imageScraper := simage.NewImageScraper()
 
 	results, err := imageScraper.ScrapeImages(r.Context(), urlParam)
 	if err != nil {
@@ -41,11 +40,11 @@ func getScraperResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	overview := imagescraper.GetImageOverview(results)
+	overview := simage.GetImageOverview(results)
 
-	var aiRecommendations *imageai.Recommendation
+	var aiRecommendations *simage.Recommendation
 	if len(results) > 0 {
-		aiRecommendations, err = imageai.GetRecommendations(results[0])
+		aiRecommendations, err = simage.GetRecommendations(results[0])
 		if err != nil {
 			log.Printf("Failed to get AI recommendations: %v", err)
 		}

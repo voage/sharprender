@@ -1,4 +1,4 @@
-package image
+package simage
 
 import (
 	"context"
@@ -55,9 +55,9 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 	var images []Image
 
 	err := chromedp.Run(ctx,
+		network.Enable(),
 		chromedp.Navigate(url),
 		chromedp.Sleep(s.timeout),
-		network.Enable(),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			var result []map[string]interface{}
 			if err := chromedp.Evaluate(evalScript, &result).Do(ctx); err != nil {
@@ -119,16 +119,16 @@ func handleRequestWillBeSent(ev *network.EventRequestWillBeSent, imageURLs map[s
 	url := ev.Request.URL
 	img := imageURLs[url]
 
-	img.Network.RequestID = string(ev.RequestID)
+	img.Network.RequestID = ev.RequestID
 	img.Network.DocumentURL = ev.DocumentURL
 	img.Network.Method = ev.Request.Method
-	img.Network.RequestTime = ev.WallTime
+	img.Network.RequestTime = ev.Timestamp
 
 	if ev.Initiator != nil {
-		img.Network.InitiatorType = string(ev.Initiator.Type)
+		img.Network.InitiatorType = ev.Initiator.Type
 		img.Network.InitiatorURL = ev.Initiator.URL
-		img.Network.InitiatorLineNo = int(ev.Initiator.LineNumber)
-		img.Network.InitiatorColNo = int(ev.Initiator.ColumnNumber)
+		img.Network.InitiatorLineNo = ev.Initiator.LineNumber
+		img.Network.InitiatorColNo = ev.Initiator.ColumnNumber
 	}
 
 	imageURLs[url] = img
@@ -139,13 +139,17 @@ func handleResponseReceived(ev *network.EventResponseReceived, imageURLs map[str
 	url := ev.Response.URL
 	img := imageURLs[url]
 
-	img.Network.Status = int(ev.Response.Status)
+	img.Network.Status = ev.Response.Status
 	img.Network.MimeType = ev.Response.MimeType
 	img.Format = ev.Response.MimeType
 	img.Network.Protocol = ev.Response.Protocol
 	img.Network.RemoteIPAddress = ev.Response.RemoteIPAddress
-	img.Network.RemotePort = int(ev.Response.RemotePort)
+	img.Network.RemotePort = ev.Response.RemotePort
 	img.Network.ResponseTime = ev.Timestamp
+
+	if img.Network.RequestTime != nil {
+		img.Network.LoadTime = float64(ev.Timestamp.Time().Sub(img.Network.RequestTime.Time()).Seconds())
+	}
 
 	img.Cache.FromCache = ev.Response.FromDiskCache || ev.Response.FromPrefetchCache
 	img.Cache.CacheHit = ev.Response.FromDiskCache || ev.Response.FromPrefetchCache
@@ -200,7 +204,9 @@ func GetImageOverview(images []Image) ImageOverview {
 
 	for _, img := range images {
 		totalSize += img.Size
-		overview.Formats[img.Format]++
+		if img.Format != "" {
+			overview.Formats[img.Format]++
+		}
 
 		if img.Cache.CacheHit {
 			totalCacheHits++
@@ -210,10 +216,10 @@ func GetImageOverview(images []Image) ImageOverview {
 		totalHeight += img.Height
 
 		if img.Network.RequestTime != nil && img.Network.ResponseTime != nil {
-			requestTime := float64(img.Network.RequestTime.Time().Unix())
-			responseTime := float64(img.Network.ResponseTime.Time().Unix())
-			totalRequestTime += responseTime - requestTime
-			totalResponseTime += responseTime
+			requestTime := img.Network.RequestTime.Time()
+			responseTime := img.Network.ResponseTime.Time()
+			totalRequestTime += float64(responseTime.UnixNano()-requestTime.UnixNano()) / 1e6
+			totalResponseTime += float64(responseTime.UnixNano()) / 1e6
 		}
 
 		totalTiming += img.Timing.TotalTime
