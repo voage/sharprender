@@ -9,3 +9,19 @@ services:
       - CHROME_PATH=/usr/bin/chromium-browser
       - PORT=8080
       - OPENAI_KEY=${OPENAI_KEY}
+      - MONGODB_URI=mongodb://mongo:27017/sharprenderdb
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - 27017:27017
+    environment:
+      - MONGO_INITDB_DATABASE=sharprenderdb
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
+    driver: local
