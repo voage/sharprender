@@ -34,8 +34,11 @@ func getScraperResults(w http.ResponseWriter, r *http.Request) {
 
 	imageScraper := simage.NewImageScraper()
 
+	imageScraper.SetNetworkProfile("Fast 3G")
+
 	results, err := imageScraper.ScrapeImages(r.Context(), urlParam)
 	if err != nil {
+		log.Printf("Failed to scrape: %v", err)
 		http.Error(w, "Failed to scrape", http.StatusInternalServerError)
 		return
 	}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/chromedp/cdproto/network"
@@ -23,22 +22,38 @@ const (
 		}))
 	`
 	scrollScript = `
-		window.scrollTo(0,document.body.scrollHeight);
+		window.scrollTo({
+			top: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+			behavior: 'smooth'
+		});
 	`
 )
 
 type ImageScraper struct {
-	timeout time.Duration
+	timeout          time.Duration
+	networkCondition *network.EmulateNetworkConditionsParams
 }
 
 func NewImageScraper() *ImageScraper {
 	return &ImageScraper{
-		timeout: defaultTimeout,
+		timeout:          defaultTimeout,
+		networkCondition: nil,
 	}
 }
 
 func (s *ImageScraper) SetTimeout(timeout time.Duration) {
 	s.timeout = timeout
+}
+
+func (s *ImageScraper) SetNetworkProfile(profile string) {
+	networkProfiles := getNetworkProfiles()
+
+	s.networkCondition = &network.EmulateNetworkConditionsParams{
+		Latency:            networkProfiles[profile].Latency,
+		DownloadThroughput: networkProfiles[profile].Download,
+		UploadThroughput:   networkProfiles[profile].Upload,
+		Offline:            false,
+	}
 }
 
 func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, error) {
@@ -47,9 +62,9 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 	}
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("headless", true),
+		chromedp.Flag("headless", false),
 		chromedp.Flag("no-sandbox", true),
-		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("disable-gpu", false),
 		chromedp.Flag("window-size", "1920,1080"),
 	)
 
@@ -70,6 +85,22 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 
 	err := chromedp.Run(ctx,
 		network.Enable(),
+		network.SetCacheDisabled(true),
+
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			if s.networkCondition != nil {
+				if err := network.EmulateNetworkConditions(
+					s.networkCondition.Offline,
+					s.networkCondition.Latency,
+					s.networkCondition.DownloadThroughput,
+					s.networkCondition.UploadThroughput,
+				).Do(ctx); err != nil {
+					return fmt.Errorf("failed to set network conditions: %w", err)
+				}
+			}
+			return nil
+		}),
+
 		chromedp.Navigate(url),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			return chromedp.Evaluate(scrollScript, nil).Do(ctx)
@@ -114,6 +145,10 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 	}
 
 	for _, img := range imagesByRequestID {
+		if img.Network.MimeType == "image/gif" || img.Network.MimeType == "text/plain" {
+			continue
+		}
+
 		images = append(images, img)
 	}
 
@@ -171,11 +206,6 @@ func handleResponseReceived(ev *network.EventResponseReceived, imagesByRequestID
 		img.Network.LoadTime = float64(ev.Timestamp.Time().Sub(img.Network.RequestTime.Time()).Seconds())
 	}
 
-	img.Cache.FromCache = ev.Response.FromDiskCache || ev.Response.FromPrefetchCache
-	img.Cache.CacheHit = ev.Response.FromDiskCache || ev.Response.FromPrefetchCache
-
-	handleCacheHeaders(ev.Response.Headers, &img.Cache)
-
 	imagesByRequestID[ev.RequestID] = img
 }
 
@@ -184,30 +214,6 @@ func handleLoadingFinished(ev *network.EventLoadingFinished, imagesByRequestID m
 		img.Network.EncodedDataLength = int(ev.EncodedDataLength)
 		img.Size = int(ev.EncodedDataLength)
 		imagesByRequestID[ev.RequestID] = img
-	}
-}
-
-func handleCacheHeaders(headers map[string]interface{}, cache *CacheInfo) {
-	if cacheState, ok := headers["x-cache"]; ok {
-		cache.CacheState = cacheState.(string)
-	}
-	if age, ok := headers["age"]; ok {
-		cache.Age, _ = strconv.Atoi(age.(string))
-	}
-	if expires, ok := headers["expires"]; ok {
-		cache.ExpirationTime = expires.(string)
-	}
-	if lastModified, ok := headers["last-modified"]; ok {
-		cache.LastModified = lastModified.(string)
-	}
-	if etag, ok := headers["etag"]; ok {
-		cache.ETag = etag.(string)
-	}
-
-	if cache.ETag != "" {
-		cache.CacheValidation = "ETag"
-	} else if cache.LastModified != "" {
-		cache.CacheValidation = "Last-Modified"
 	}
 }
 
@@ -224,10 +230,6 @@ func GetImageOverview(images []Image) ImageOverview {
 		totalSize += img.Size
 		if img.Format != "" {
 			overview.Formats[img.Format]++
-		}
-
-		if img.Cache.CacheHit {
-			totalCacheHits++
 		}
 
 		totalWidth += img.Width
@@ -255,6 +257,26 @@ func GetImageOverview(images []Image) ImageOverview {
 	}
 
 	return overview
+}
+
+func getNetworkProfiles() map[string]NetworkProfile {
+	return map[string]NetworkProfile{
+		"No Throttling": {
+			Download: -1,
+			Upload:   -1,
+			Latency:  0,
+		},
+		"Slow 3G": {
+			Download: ((500 * 1000) / 8) * 0.8,
+			Upload:   ((500 * 1000) / 8) * 0.8,
+			Latency:  400 * 5,
+		},
+		"Fast 3G": {
+			Download: ((1.6 * 1000 * 1000) / 8) * 0.9,
+			Upload:   ((750 * 1000) / 8) * 0.9,
+			Latency:  150 * 3.75,
+		},
+	}
 }
 
 func cleanURL(imgURL string) string {
