@@ -33,7 +33,6 @@ type Image struct {
 	Size   int    `json:"size"`
 
 	Network NetworkInfo `json:"network"`
-	Timing  TimingInfo  `json:"timing"`
 	Cache   CacheInfo   `json:"cache"`
 }
 
@@ -54,16 +53,6 @@ type NetworkInfo struct {
 	RequestTime       *cdp.MonotonicTime    `json:"request_time"`
 	ResponseTime      *cdp.MonotonicTime    `json:"response_time"`
 	LoadTime          float64               `json:"load_time"`
-}
-
-type TimingInfo struct {
-	DNSTime     float64 `json:"dns_time"`
-	ConnectTime float64 `json:"connect_time"`
-	SSLTime     float64 `json:"ssl_time"`
-	SendTime    float64 `json:"send_time"`
-	WaitTime    float64 `json:"wait_time"`
-	ReceiveTime float64 `json:"receive_time"`
-	TotalTime   float64 `json:"total_time"`
 }
 
 type CacheInfo struct {
