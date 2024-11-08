@@ -46,7 +46,17 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 		ctx = context.Background()
 	}
 
-	ctx, cancel := chromedp.NewContext(ctx, chromedp.WithLogf(log.Printf))
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.Flag("headless", true),
+		chromedp.Flag("no-sandbox", true),
+		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("window-size", "1920,1080"),
+	)
+
+	allocCtx, cancel := chromedp.NewExecAllocator(ctx, opts...)
+	defer cancel()
+
+	ctx, cancel = chromedp.NewContext(allocCtx, chromedp.WithLogf(log.Printf))
 	defer cancel()
 
 	imagesByRequestID := make(map[network.RequestID]Image)
