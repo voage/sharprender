@@ -33,7 +33,6 @@ type Image struct {
 	Size   int    `json:"size"`
 
 	Network NetworkInfo `json:"network"`
-	Cache   CacheInfo   `json:"cache"`
 }
 
 type NetworkInfo struct {
@@ -55,17 +54,6 @@ type NetworkInfo struct {
 	LoadTime          float64               `json:"load_time"`
 }
 
-type CacheInfo struct {
-	FromCache       bool   `json:"from_cache"`
-	CacheHit        bool   `json:"cache_hit"`
-	CacheState      string `json:"cache_state,omitempty"`
-	CacheValidation string `json:"cache_validation,omitempty"`
-	Age             int    `json:"age,omitempty"`
-	ExpirationTime  string `json:"expiration_time,omitempty"`
-	LastModified    string `json:"last_modified,omitempty"`
-	ETag            string `json:"etag,omitempty"`
-}
-
 type ImageOverview struct {
 	TotalImages         int            `json:"total_images"`
 	TotalSize           int            `json:"total_size"`
@@ -77,4 +65,10 @@ type ImageOverview struct {
 	AverageRequestTime  float64        `json:"average_request_time"`
 	AverageResponseTime float64        `json:"average_response_time"`
 	AverageTotalTime    float64        `json:"average_total_time"`
+}
+
+type NetworkProfile struct {
+	Download float64
+	Upload   float64
+	Latency  float64
 }
