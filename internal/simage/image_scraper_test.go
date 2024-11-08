@@ -1,3 +1,3 @@
-package image
+package simage
 
 // TODO: Implement tests

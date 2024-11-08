@@ -1,9 +1,10 @@
-package image
+package simage
 
 import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -20,6 +21,9 @@ const (
 			width: img.width,
 			height: img.height
 		}))
+	`
+	scrollScript = `
+		window.scrollTo(0,document.body.scrollHeight);
 	`
 )
 
@@ -45,49 +49,25 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 	ctx, cancel := chromedp.NewContext(ctx, chromedp.WithLogf(log.Printf))
 	defer cancel()
 
-	imageURLs := make(map[string]Image)
-	imageRequestIDToURL := make(map[network.RequestID]string)
+	imagesByRequestID := make(map[network.RequestID]Image)
 
 	chromedp.ListenTarget(ctx, func(ev interface{}) {
-		handleImageEvents(ev, imageURLs, imageRequestIDToURL)
+		handleImageEvents(ev, imagesByRequestID)
 	})
 
 	var images []Image
+	var imgElements []Image
 
 	err := chromedp.Run(ctx,
-		chromedp.Navigate(url),
-		chromedp.Sleep(s.timeout),
 		network.Enable(),
+		chromedp.Navigate(url),
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			var result []map[string]interface{}
-			if err := chromedp.Evaluate(evalScript, &result).Do(ctx); err != nil {
-				return err
-			}
+			return chromedp.Evaluate(scrollScript, nil).Do(ctx)
+		}),
+		chromedp.Sleep(s.timeout),
 
-			for _, imgData := range result {
-				src, ok := imgData["src"].(string)
-				if !ok {
-					continue
-				}
-
-				img := &Image{
-					Src:    src,
-					Alt:    safeString(imgData["alt"]),
-					Width:  safeInt(imgData["width"]),
-					Height: safeInt(imgData["height"]),
-				}
-
-				if netImg, ok := imageURLs[src]; ok {
-					img.Format = netImg.Format
-					img.Size = netImg.Size
-					img.Network = netImg.Network
-					img.Timing = netImg.Timing
-					img.Cache = netImg.Cache
-				}
-
-				images = append(images, *img)
-			}
-			return nil
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			return chromedp.Evaluate(evalScript, &imgElements).Do(ctx)
 		}),
 	)
 
@@ -95,73 +75,105 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 		return nil, fmt.Errorf("error scraping images: %w", err)
 	}
 
+	for _, img := range imgElements {
+		src := cleanURL(img.Src)
+		if src == "" {
+			continue
+		}
+
+		found := false
+		for id, netImg := range imagesByRequestID {
+			if cleanURL(netImg.Src) == src {
+				netImg.Width = img.Width
+				netImg.Height = img.Height
+				netImg.Alt = img.Alt
+				imagesByRequestID[id] = netImg
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			images = append(images, Image{
+				Src:    src,
+				Width:  img.Width,
+				Height: img.Height,
+				Alt:    img.Alt,
+			})
+		}
+	}
+
+	for _, img := range imagesByRequestID {
+		images = append(images, img)
+	}
+
 	return images, nil
 }
 
-func handleImageEvents(ev interface{}, imageURLs map[string]Image, imageRequestIDToURL map[network.RequestID]string) {
+func handleImageEvents(ev interface{}, imagesByRequestID map[network.RequestID]Image) {
 	switch ev := ev.(type) {
 	case *network.EventRequestWillBeSent:
 		if ev.Type == network.ResourceTypeImage {
-			handleRequestWillBeSent(ev, imageURLs, imageRequestIDToURL)
+			handleRequestWillBeSent(ev, imagesByRequestID)
 		}
 
 	case *network.EventResponseReceived:
 		if ev.Type == network.ResourceTypeImage {
-			handleResponseReceived(ev, imageURLs)
+			handleResponseReceived(ev, imagesByRequestID)
 		}
 
 	case *network.EventLoadingFinished:
-		handleLoadingFinished(ev, imageURLs, imageRequestIDToURL)
+		handleLoadingFinished(ev, imagesByRequestID)
 	}
 }
 
-func handleRequestWillBeSent(ev *network.EventRequestWillBeSent, imageURLs map[string]Image, imageRequestIDToURL map[network.RequestID]string) {
-	url := ev.Request.URL
-	img := imageURLs[url]
+func handleRequestWillBeSent(ev *network.EventRequestWillBeSent, imagesByRequestID map[network.RequestID]Image) {
+	img := imagesByRequestID[ev.RequestID]
+	img.Src = cleanURL(ev.Request.URL)
 
-	img.Network.RequestID = string(ev.RequestID)
+	img.Network.RequestID = ev.RequestID
 	img.Network.DocumentURL = ev.DocumentURL
 	img.Network.Method = ev.Request.Method
-	img.Network.RequestTime = ev.WallTime
+	img.Network.RequestTime = ev.Timestamp
 
 	if ev.Initiator != nil {
-		img.Network.InitiatorType = string(ev.Initiator.Type)
+		img.Network.InitiatorType = ev.Initiator.Type
 		img.Network.InitiatorURL = ev.Initiator.URL
-		img.Network.InitiatorLineNo = int(ev.Initiator.LineNumber)
-		img.Network.InitiatorColNo = int(ev.Initiator.ColumnNumber)
+		img.Network.InitiatorLineNo = ev.Initiator.LineNumber
+		img.Network.InitiatorColNo = ev.Initiator.ColumnNumber
 	}
 
-	imageURLs[url] = img
-	imageRequestIDToURL[ev.RequestID] = url
+	imagesByRequestID[ev.RequestID] = img
 }
 
-func handleResponseReceived(ev *network.EventResponseReceived, imageURLs map[string]Image) {
-	url := ev.Response.URL
-	img := imageURLs[url]
+func handleResponseReceived(ev *network.EventResponseReceived, imagesByRequestID map[network.RequestID]Image) {
+	img := imagesByRequestID[ev.RequestID]
 
-	img.Network.Status = int(ev.Response.Status)
+	img.Network.Status = ev.Response.Status
 	img.Network.MimeType = ev.Response.MimeType
 	img.Format = ev.Response.MimeType
 	img.Network.Protocol = ev.Response.Protocol
 	img.Network.RemoteIPAddress = ev.Response.RemoteIPAddress
-	img.Network.RemotePort = int(ev.Response.RemotePort)
+	img.Network.RemotePort = ev.Response.RemotePort
 	img.Network.ResponseTime = ev.Timestamp
+
+	if img.Network.RequestTime != nil {
+		img.Network.LoadTime = float64(ev.Timestamp.Time().Sub(img.Network.RequestTime.Time()).Seconds())
+	}
 
 	img.Cache.FromCache = ev.Response.FromDiskCache || ev.Response.FromPrefetchCache
 	img.Cache.CacheHit = ev.Response.FromDiskCache || ev.Response.FromPrefetchCache
 
 	handleCacheHeaders(ev.Response.Headers, &img.Cache)
 
-	imageURLs[url] = img
+	imagesByRequestID[ev.RequestID] = img
 }
 
-func handleLoadingFinished(ev *network.EventLoadingFinished, imageURLs map[string]Image, imageRequestIDToURL map[network.RequestID]string) {
-	if url, ok := imageRequestIDToURL[ev.RequestID]; ok {
-		if img, exists := imageURLs[url]; exists {
-			img.Network.EncodedDataLength = int(ev.EncodedDataLength)
-			img.Size = int(ev.EncodedDataLength)
-			imageURLs[url] = img
-		}
+func handleLoadingFinished(ev *network.EventLoadingFinished, imagesByRequestID map[network.RequestID]Image) {
+	if img, exists := imagesByRequestID[ev.RequestID]; exists {
+		img.Network.EncodedDataLength = int(ev.EncodedDataLength)
+		img.Size = int(ev.EncodedDataLength)
+		imagesByRequestID[ev.RequestID] = img
 	}
 }
 
@@ -200,7 +212,9 @@ func GetImageOverview(images []Image) ImageOverview {
 
 	for _, img := range images {
 		totalSize += img.Size
-		overview.Formats[img.Format]++
+		if img.Format != "" {
+			overview.Formats[img.Format]++
+		}
 
 		if img.Cache.CacheHit {
 			totalCacheHits++
@@ -210,13 +224,12 @@ func GetImageOverview(images []Image) ImageOverview {
 		totalHeight += img.Height
 
 		if img.Network.RequestTime != nil && img.Network.ResponseTime != nil {
-			requestTime := float64(img.Network.RequestTime.Time().Unix())
-			responseTime := float64(img.Network.ResponseTime.Time().Unix())
-			totalRequestTime += responseTime - requestTime
-			totalResponseTime += responseTime
+			requestTime := img.Network.RequestTime.Time()
+			responseTime := img.Network.ResponseTime.Time()
+			totalRequestTime += float64(responseTime.UnixNano()-requestTime.UnixNano()) / 1e6
+			totalResponseTime += float64(responseTime.UnixNano()) / 1e6
 		}
 
-		totalTiming += img.Timing.TotalTime
 	}
 
 	if overview.TotalImages > 0 {
@@ -234,16 +247,24 @@ func GetImageOverview(images []Image) ImageOverview {
 	return overview
 }
 
-func safeString(val interface{}) string {
-	if str, ok := val.(string); ok {
-		return str
+func cleanURL(imgURL string) string {
+	u, err := url.Parse(imgURL)
+	if err != nil {
+		return imgURL
 	}
-	return ""
-}
 
-func safeInt(val interface{}) int {
-	if num, ok := val.(float64); ok {
-		return int(num)
+	q := u.Query()
+	if originalURL := q.Get("url"); originalURL != "" {
+		decoded, err := url.QueryUnescape(originalURL)
+		if err != nil {
+			return imgURL
+		}
+		return decoded
 	}
-	return 0
+
+	q.Del("w")
+	q.Del("q")
+	u.RawQuery = q.Encode()
+
+	return u.String()
 }
