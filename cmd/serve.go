@@ -6,14 +6,16 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 	"github.com/voage/sharprender-api/db"
 	"github.com/voage/sharprender-api/shttp"
 )
 
 func main() {
-	_ = godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file: %s", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -29,9 +31,7 @@ func main() {
 		port = "8080"
 	}
 
-	router := chi.NewRouter()
-
-	shttp.SetupRoutes(router, mongoClient)
+	router := shttp.NewRouter(mongoClient)
 
 	log.Printf("Starting server on :%s", port)
 
