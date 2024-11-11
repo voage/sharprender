@@ -41,14 +41,3 @@ func InitMongoDB(ctx context.Context) (*MongoClient, error) {
 	log.Println("Connected to MongoDB Atlas successfully")
 	return &MongoClient{client}, nil
 }
-
-func (m *MongoClient) GetCollection(databaseName, collectionName string) *mongo.Collection {
-	return m.Database(databaseName).Collection(collectionName)
-}
-
-func (m *MongoClient) Disconnect(ctx context.Context) error {
-	if err := m.Client.Disconnect(ctx); err != nil {
-		return fmt.Errorf("failed to disconnect from MongoDB: %w", err)
-	}
-	return nil
-}
