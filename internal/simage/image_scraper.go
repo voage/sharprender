@@ -2,13 +2,13 @@ package simage
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/url"
 	"time"
 
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 )
 
@@ -23,10 +23,19 @@ const (
 		}))
 	`
 	scrollScript = `
-		window.scrollTo({
-			top: document.documentElement.scrollHeight - document.documentElement.clientHeight,
-			behavior: 'smooth'
-		});
+		async function smoothScroll() {
+					const height = document.documentElement.scrollHeight;
+					const scrollStep = Math.floor(height / 20);
+					
+					for (let i = 0; i <= height; i += scrollStep) {
+						window.scrollTo({
+							top: i,
+							behavior: 'smooth'
+						});
+						await new Promise(resolve => setTimeout(resolve, 300));
+					}
+				}
+				smoothScroll();
 	`
 	resourceTimingScript = `
 	(() => {
@@ -59,7 +68,7 @@ type ImageScraper struct {
 func NewImageScraper() *ImageScraper {
 	return &ImageScraper{
 		timeout:  defaultTimeout,
-		headless: true,
+		headless: false,
 	}
 }
 
@@ -132,14 +141,24 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 			return nil
 		}),
 		chromedp.Navigate(targetURL),
+		chromedp.Sleep(2*time.Second),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			_, exp, err := runtime.Evaluate(
+				scrollScript,
+			).Do(ctx)
+			if err != nil {
+				return err
+			}
+			if exp != nil {
+				return exp
+			}
+			return nil
+		}),
+		chromedp.Sleep(8*time.Second),
 	)
 
 	if err != nil {
 		return nil, fmt.Errorf("error navigating to URL: %w", err)
-	}
-
-	if err := waitForImagesToLoad(ctx, s.timeout); err != nil {
-		log.Printf("Warning: timed out waiting for images to fully load: %v", err)
 	}
 
 	err = chromedp.Run(ctx,
@@ -149,16 +168,7 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 		return nil, fmt.Errorf("error extracting images from DOM: %w", err)
 	}
 
-	cleanedURLToReqID := map[string]network.RequestID{}
-	for reqID, netImg := range imagesByRequestID {
-		cURL := cleanURL(netImg.Src)
-		if cURL != "" {
-			cleanedURLToReqID[cURL] = reqID
-		}
-	}
-
 	var images []Image
-	uniqueImages := map[string]bool{}
 
 	for _, img := range imgElements {
 		src := cleanURL(img.Src)
@@ -166,23 +176,25 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 			continue
 		}
 
-		if reqID, ok := cleanedURLToReqID[src]; ok {
-			netImg := imagesByRequestID[reqID]
-			netImg.Width = img.Width
-			netImg.Height = img.Height
-			netImg.Alt = img.Alt
-			imagesByRequestID[reqID] = netImg
-			uniqueImages[src] = true
-		} else {
-			if !uniqueImages[src] {
-				images = append(images, Image{
-					Src:    src,
-					Width:  img.Width,
-					Height: img.Height,
-					Alt:    img.Alt,
-				})
-				uniqueImages[src] = true
+		found := false
+		for id, netImg := range imagesByRequestID {
+			if cleanURL(netImg.Src) == src {
+				netImg.Width = img.Width
+				netImg.Height = img.Height
+				netImg.Alt = img.Alt
+				imagesByRequestID[id] = netImg
+				found = true
+				break
 			}
+		}
+
+		if !found {
+			images = append(images, Image{
+				Src:    src,
+				Width:  img.Width,
+				Height: img.Height,
+				Alt:    img.Alt,
+			})
 		}
 	}
 
@@ -190,11 +202,7 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 		if img.Network.MimeType == "image/gif" || img.Network.MimeType == "text/plain" {
 			continue
 		}
-		src := cleanURL(img.Src)
-		if src != "" && !uniqueImages[src] {
-			images = append(images, img)
-			uniqueImages[src] = true
-		}
+		images = append(images, img)
 	}
 
 	var resourceTimings []ResourceTimingEntry
@@ -217,33 +225,6 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 
 	log.Printf("Found %d unique images", len(images))
 	return images, nil
-}
-
-func waitForImagesToLoad(ctx context.Context, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	var prevCount, stableCount int
-	for time.Now().Before(deadline) {
-		var count int
-		if err := chromedp.Evaluate(`document.images.length`, &count).Do(ctx); err != nil {
-			return err
-		}
-
-		if count == prevCount {
-			stableCount++
-			if stableCount > 2 {
-				return nil
-			}
-		} else {
-			stableCount = 0
-		}
-
-		prevCount = count
-		if err := chromedp.Evaluate(scrollScript, nil).Do(ctx); err != nil {
-			return err
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return errors.New("timeout reached while waiting for images to load")
 }
 
 func handleImageEvents(ev interface{}, imagesByRequestID map[network.RequestID]Image) {
@@ -355,21 +336,16 @@ func getNetworkProfiles() map[string]NetworkProfile {
 func cleanURL(imgURL string) string {
 	u, err := url.Parse(imgURL)
 	if err != nil {
-		log.Printf("Warning: failed to parse URL %q: %v", imgURL, err)
 		return imgURL
 	}
 
 	q := u.Query()
-
 	if originalURL := q.Get("url"); originalURL != "" {
 		decoded, err := url.QueryUnescape(originalURL)
-		if err == nil {
-			u2, err := url.Parse(decoded)
-			if err == nil {
-				u = u2
-				q = u.Query()
-			}
+		if err != nil {
+			return imgURL
 		}
+		return decoded
 	}
 
 	q.Del("w")
@@ -380,7 +356,7 @@ func cleanURL(imgURL string) string {
 }
 
 func convertTiming(rt ResourceTimingEntry) TimingInfo {
-	return TimingInfo{
+	timing := TimingInfo{
 		DNSLookup:           rt.DomainLookupEnd - rt.DomainLookupStart,
 		ConnectionTime:      rt.ConnectEnd - rt.ConnectStart,
 		SSLTime:             sslTime(rt),
@@ -390,6 +366,8 @@ func convertTiming(rt ResourceTimingEntry) TimingInfo {
 		EncodedBodySize:     rt.EncodedBodySize,
 		DecodedBodySize:     rt.DecodedBodySize,
 	}
+
+	return timing
 }
 
 func sslTime(rt ResourceTimingEntry) float64 {

@@ -5,7 +5,7 @@ go 1.23
 toolchain go1.23.1
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20241014181340-cb3a7a1d51d7
+	github.com/chromedp/cdproto v0.0.0-20241202193831-ec840381567d
 	github.com/chromedp/chromedp v0.11.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/h2non/bimg v1.1.9
