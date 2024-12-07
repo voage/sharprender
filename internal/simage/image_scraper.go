@@ -259,6 +259,19 @@ func handleResponseReceived(ev *network.EventResponseReceived, imagesByRequestID
 		img.Network.LoadTime = ev.Timestamp.Time().Sub(img.Network.RequestTime.Time()).Seconds()
 	}
 
+	// Extract request and response headers
+	requestHeaders := make(map[string]string)
+	for k, v := range ev.Response.RequestHeaders {
+		requestHeaders[k] = fmt.Sprintf("%v", v)
+	}
+	responseHeaders := make(map[string]string)
+	for k, v := range ev.Response.Headers {
+		responseHeaders[k] = fmt.Sprintf("%v", v)
+	}
+
+	img.Network.RequestHeaders = requestHeaders
+	img.Network.ResponseHeaders = responseHeaders
+
 	imagesByRequestID[ev.RequestID] = img
 }
 
@@ -307,7 +320,6 @@ func GetImageOverview(images []Image) ImageOverview {
 		overview.AverageWidth = totalWidth / overview.TotalImages
 		overview.AverageHeight = totalHeight / overview.TotalImages
 		overview.TotalSize = totalSize
-
 		overview.AverageTotalTime = totalLoadTime / float64(overview.TotalImages)
 	}
 

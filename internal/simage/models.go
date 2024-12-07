@@ -51,6 +51,8 @@ type NetworkInfo struct {
 	RequestTime       *cdp.MonotonicTime    `json:"request_time" bson:"request_time"`
 	ResponseTime      *cdp.MonotonicTime    `json:"response_time" bson:"response_time"`
 	LoadTime          float64               `json:"load_time" bson:"load_time"`
+	RequestHeaders    map[string]string     `json:"request_headers" bson:"request_headers"`
+	ResponseHeaders   map[string]string     `json:"response_headers" bson:"response_headers"`
 }
 
 type ImageOverview struct {
