@@ -2,6 +2,7 @@ package simage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -12,7 +13,7 @@ import (
 )
 
 const (
-	defaultTimeout = 2 * time.Second
+	defaultTimeout = 10 * time.Second
 	evalScript     = `
 		Array.from(document.images).map(img => ({
 			src: img.src,
@@ -32,12 +33,13 @@ const (
 type ImageScraper struct {
 	timeout          time.Duration
 	networkCondition *network.EmulateNetworkConditionsParams
+	headless         bool
 }
 
 func NewImageScraper() *ImageScraper {
 	return &ImageScraper{
-		timeout:          defaultTimeout,
-		networkCondition: nil,
+		timeout:  defaultTimeout,
+		headless: true,
 	}
 }
 
@@ -45,24 +47,34 @@ func (s *ImageScraper) SetTimeout(timeout time.Duration) {
 	s.timeout = timeout
 }
 
-func (s *ImageScraper) SetNetworkProfile(profile string) {
-	networkProfiles := getNetworkProfiles()
-
-	s.networkCondition = &network.EmulateNetworkConditionsParams{
-		Latency:            networkProfiles[profile].Latency,
-		DownloadThroughput: networkProfiles[profile].Download,
-		UploadThroughput:   networkProfiles[profile].Upload,
-		Offline:            false,
-	}
+func (s *ImageScraper) SetHeadless(headless bool) {
+	s.headless = headless
 }
 
-func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, error) {
+func (s *ImageScraper) SetNetworkProfile(profile string) error {
+	networkProfiles := getNetworkProfiles()
+	p, exists := networkProfiles[profile]
+	if !exists {
+		return fmt.Errorf("network profile %q not found", profile)
+	}
+
+	s.networkCondition = &network.EmulateNetworkConditionsParams{
+		Latency:            p.Latency,
+		DownloadThroughput: p.Download,
+		UploadThroughput:   p.Upload,
+		Offline:            false,
+	}
+
+	return nil
+}
+
+func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Image, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("headless", false),
+		chromedp.Flag("headless", s.headless),
 		chromedp.Flag("no-sandbox", true),
 		chromedp.Flag("disable-gpu", false),
 		chromedp.Flag("window-size", "1920,1080"),
@@ -80,13 +92,11 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 		handleImageEvents(ev, imagesByRequestID)
 	})
 
-	var images []Image
 	var imgElements []Image
 
 	err := chromedp.Run(ctx,
 		network.Enable(),
 		network.SetCacheDisabled(true),
-
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			if s.networkCondition != nil {
 				if err := network.EmulateNetworkConditions(
@@ -97,24 +107,38 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 				).Do(ctx); err != nil {
 					return fmt.Errorf("failed to set network conditions: %w", err)
 				}
+				log.Printf("Network conditions set: %+v", s.networkCondition)
 			}
 			return nil
 		}),
-
-		chromedp.Navigate(url),
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			return chromedp.Evaluate(scrollScript, nil).Do(ctx)
-		}),
-		chromedp.Sleep(s.timeout),
-
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			return chromedp.Evaluate(evalScript, &imgElements).Do(ctx)
-		}),
+		chromedp.Navigate(targetURL),
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("error scraping images: %w", err)
+		return nil, fmt.Errorf("error navigating to URL: %w", err)
 	}
+
+	if err := waitForImagesToLoad(ctx, s.timeout); err != nil {
+		log.Printf("Warning: timed out waiting for images to fully load: %v", err)
+	}
+
+	err = chromedp.Run(ctx,
+		chromedp.Evaluate(evalScript, &imgElements),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting images from DOM: %w", err)
+	}
+
+	cleanedURLToReqID := map[string]network.RequestID{}
+	for reqID, netImg := range imagesByRequestID {
+		cURL := cleanURL(netImg.Src)
+		if cURL != "" {
+			cleanedURLToReqID[cURL] = reqID
+		}
+	}
+
+	var images []Image
+	uniqueImages := map[string]bool{}
 
 	for _, img := range imgElements {
 		src := cleanURL(img.Src)
@@ -122,25 +146,23 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 			continue
 		}
 
-		found := false
-		for id, netImg := range imagesByRequestID {
-			if cleanURL(netImg.Src) == src {
-				netImg.Width = img.Width
-				netImg.Height = img.Height
-				netImg.Alt = img.Alt
-				imagesByRequestID[id] = netImg
-				found = true
-				break
+		if reqID, ok := cleanedURLToReqID[src]; ok {
+			netImg := imagesByRequestID[reqID]
+			netImg.Width = img.Width
+			netImg.Height = img.Height
+			netImg.Alt = img.Alt
+			imagesByRequestID[reqID] = netImg
+			uniqueImages[src] = true
+		} else {
+			if !uniqueImages[src] {
+				images = append(images, Image{
+					Src:    src,
+					Width:  img.Width,
+					Height: img.Height,
+					Alt:    img.Alt,
+				})
+				uniqueImages[src] = true
 			}
-		}
-
-		if !found {
-			images = append(images, Image{
-				Src:    src,
-				Width:  img.Width,
-				Height: img.Height,
-				Alt:    img.Alt,
-			})
 		}
 	}
 
@@ -148,11 +170,42 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 		if img.Network.MimeType == "image/gif" || img.Network.MimeType == "text/plain" {
 			continue
 		}
-
-		images = append(images, img)
+		src := cleanURL(img.Src)
+		if src != "" && !uniqueImages[src] {
+			images = append(images, img)
+			uniqueImages[src] = true
+		}
 	}
 
+	log.Printf("Found %d unique images", len(images))
 	return images, nil
+}
+
+func waitForImagesToLoad(ctx context.Context, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var prevCount, stableCount int
+	for time.Now().Before(deadline) {
+		var count int
+		if err := chromedp.Evaluate(`document.images.length`, &count).Do(ctx); err != nil {
+			return err
+		}
+
+		if count == prevCount {
+			stableCount++
+			if stableCount > 2 {
+				return nil
+			}
+		} else {
+			stableCount = 0
+		}
+
+		prevCount = count
+		if err := chromedp.Evaluate(scrollScript, nil).Do(ctx); err != nil {
+			return err
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return errors.New("timeout reached while waiting for images to load")
 }
 
 func handleImageEvents(ev interface{}, imagesByRequestID map[network.RequestID]Image) {
@@ -196,14 +249,14 @@ func handleResponseReceived(ev *network.EventResponseReceived, imagesByRequestID
 
 	img.Network.Status = ev.Response.Status
 	img.Network.MimeType = ev.Response.MimeType
-	img.Format = ev.Response.MimeType
+	img.Format = normalizeFormat(ev.Response.MimeType)
 	img.Network.Protocol = ev.Response.Protocol
 	img.Network.RemoteIPAddress = ev.Response.RemoteIPAddress
 	img.Network.RemotePort = ev.Response.RemotePort
 	img.Network.ResponseTime = ev.Timestamp
 
 	if img.Network.RequestTime != nil {
-		img.Network.LoadTime = float64(ev.Timestamp.Time().Sub(img.Network.RequestTime.Time()).Seconds())
+		img.Network.LoadTime = ev.Timestamp.Time().Sub(img.Network.RequestTime.Time()).Seconds()
 	}
 
 	imagesByRequestID[ev.RequestID] = img
@@ -217,14 +270,26 @@ func handleLoadingFinished(ev *network.EventLoadingFinished, imagesByRequestID m
 	}
 }
 
+func normalizeFormat(mimeType string) string {
+	switch mimeType {
+	case "image/jpeg":
+		return "image/jpeg"
+	case "image/png":
+		return "image/png"
+	case "image/webp":
+		return "image/webp"
+	}
+	return mimeType
+}
+
 func GetImageOverview(images []Image) ImageOverview {
 	overview := ImageOverview{
 		TotalImages: len(images),
 		Formats:     make(map[string]int),
 	}
 
-	var totalWidth, totalHeight, totalSize, totalCacheHits int
-	var totalRequestTime, totalResponseTime, totalTiming float64
+	var totalWidth, totalHeight, totalSize int
+	var totalLoadTime float64
 
 	for _, img := range images {
 		totalSize += img.Size
@@ -234,14 +299,7 @@ func GetImageOverview(images []Image) ImageOverview {
 
 		totalWidth += img.Width
 		totalHeight += img.Height
-
-		if img.Network.RequestTime != nil && img.Network.ResponseTime != nil {
-			requestTime := img.Network.RequestTime.Time()
-			responseTime := img.Network.ResponseTime.Time()
-			totalRequestTime += float64(responseTime.UnixNano()-requestTime.UnixNano()) / 1e6
-			totalResponseTime += float64(responseTime.UnixNano()) / 1e6
-		}
-
+		totalLoadTime += img.Network.LoadTime
 	}
 
 	if overview.TotalImages > 0 {
@@ -249,11 +307,8 @@ func GetImageOverview(images []Image) ImageOverview {
 		overview.AverageWidth = totalWidth / overview.TotalImages
 		overview.AverageHeight = totalHeight / overview.TotalImages
 		overview.TotalSize = totalSize
-		overview.CacheHits = totalCacheHits
 
-		overview.AverageRequestTime = totalRequestTime / float64(overview.TotalImages)
-		overview.AverageResponseTime = totalResponseTime / float64(overview.TotalImages)
-		overview.AverageTotalTime = totalTiming / float64(overview.TotalImages)
+		overview.AverageTotalTime = totalLoadTime / float64(overview.TotalImages)
 	}
 
 	return overview
@@ -282,16 +337,21 @@ func getNetworkProfiles() map[string]NetworkProfile {
 func cleanURL(imgURL string) string {
 	u, err := url.Parse(imgURL)
 	if err != nil {
+		log.Printf("Warning: failed to parse URL %q: %v", imgURL, err)
 		return imgURL
 	}
 
 	q := u.Query()
+
 	if originalURL := q.Get("url"); originalURL != "" {
 		decoded, err := url.QueryUnescape(originalURL)
-		if err != nil {
-			return imgURL
+		if err == nil {
+			u2, err := url.Parse(decoded)
+			if err == nil {
+				u = u2
+				q = u.Query()
+			}
 		}
-		return decoded
 	}
 
 	q.Del("w")
