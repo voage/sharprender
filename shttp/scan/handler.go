@@ -56,7 +56,7 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 
 	imageScraper := simage.NewImageScraper()
 
-	imageScraper.SetNetworkProfile("Fast 3G")
+	imageScraper.SetNetworkProfile("No Throttling")
 
 	results, err := imageScraper.ScrapeImages(r.Context(), urlParam)
 	if err != nil {
@@ -65,11 +65,8 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	overview := simage.GetImageOverview(results)
-
 	scan := Scan{
 		URL:       urlParam,
-		Overview:  overview,
 		Images:    results,
 		CreatedAt: time.Now(),
 	}

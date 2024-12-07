@@ -32,6 +32,7 @@ type Image struct {
 	Format  string      `json:"format" bson:"format"`
 	Size    int         `json:"size" bson:"size"`
 	Network NetworkInfo `json:"network" bson:"network"`
+	Timing  TimingInfo  `json:"timing" bson:"timing"`
 }
 
 type NetworkInfo struct {
@@ -51,6 +52,8 @@ type NetworkInfo struct {
 	RequestTime       *cdp.MonotonicTime    `json:"request_time" bson:"request_time"`
 	ResponseTime      *cdp.MonotonicTime    `json:"response_time" bson:"response_time"`
 	LoadTime          float64               `json:"load_time" bson:"load_time"`
+	RequestHeaders    map[string]string     `json:"request_headers" bson:"request_headers"`
+	ResponseHeaders   map[string]string     `json:"response_headers" bson:"response_headers"`
 }
 
 type ImageOverview struct {
@@ -70,4 +73,30 @@ type NetworkProfile struct {
 	Download float64
 	Upload   float64
 	Latency  float64
+}
+
+type ResourceTimingEntry struct {
+	Name                  string  `json:"name"`
+	DomainLookupStart     float64 `json:"domainLookupStart"`
+	DomainLookupEnd       float64 `json:"domainLookupEnd"`
+	ConnectStart          float64 `json:"connectStart"`
+	ConnectEnd            float64 `json:"connectEnd"`
+	SecureConnectionStart float64 `json:"secureConnectionStart"`
+	RequestStart          float64 `json:"requestStart"`
+	ResponseStart         float64 `json:"responseStart"`
+	ResponseEnd           float64 `json:"responseEnd"`
+	TransferSize          float64 `json:"transferSize"`
+	EncodedBodySize       float64 `json:"encodedBodySize"`
+	DecodedBodySize       float64 `json:"decodedBodySize"`
+}
+
+type TimingInfo struct {
+	DNSLookup           float64 `json:"dns_lookup"`
+	ConnectionTime      float64 `json:"connection_time"`
+	SSLTime             float64 `json:"ssl_time"`
+	TTFB                float64 `json:"ttfb"`
+	ContentDownloadTime float64 `json:"content_download_time"`
+	TransferSize        float64 `json:"transfer_size"`
+	EncodedBodySize     float64 `json:"encoded_body_size"`
+	DecodedBodySize     float64 `json:"decoded_body_size"`
 }

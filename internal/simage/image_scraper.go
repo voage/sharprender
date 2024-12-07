@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 )
 
 const (
-	defaultTimeout = 2 * time.Second
+	defaultTimeout = 10 * time.Second
 	evalScript     = `
 		Array.from(document.images).map(img => ({
 			src: img.src,
@@ -22,22 +23,52 @@ const (
 		}))
 	`
 	scrollScript = `
-		window.scrollTo({
-			top: document.documentElement.scrollHeight - document.documentElement.clientHeight,
-			behavior: 'smooth'
-		});
+		async function smoothScroll() {
+					const height = document.documentElement.scrollHeight;
+					const scrollStep = Math.floor(height / 20);
+					
+					for (let i = 0; i <= height; i += scrollStep) {
+						window.scrollTo({
+							top: i,
+							behavior: 'smooth'
+						});
+						await new Promise(resolve => setTimeout(resolve, 300));
+					}
+				}
+				smoothScroll();
+	`
+	resourceTimingScript = `
+	(() => {
+		return performance.getEntriesByType('resource')
+			.filter(e => e.initiatorType === 'img')
+			.map(e => ({
+				name: e.name,
+				domainLookupStart: e.domainLookupStart,
+				domainLookupEnd: e.domainLookupEnd,
+				connectStart: e.connectStart,
+				connectEnd: e.connectEnd,
+				secureConnectionStart: e.secureConnectionStart,
+				requestStart: e.requestStart,
+				responseStart: e.responseStart,
+				responseEnd: e.responseEnd,
+				transferSize: e.transferSize,
+				encodedBodySize: e.encodedBodySize,
+				decodedBodySize: e.decodedBodySize
+			}));
+	})();
 	`
 )
 
 type ImageScraper struct {
 	timeout          time.Duration
 	networkCondition *network.EmulateNetworkConditionsParams
+	headless         bool
 }
 
 func NewImageScraper() *ImageScraper {
 	return &ImageScraper{
-		timeout:          defaultTimeout,
-		networkCondition: nil,
+		timeout:  defaultTimeout,
+		headless: false,
 	}
 }
 
@@ -45,24 +76,34 @@ func (s *ImageScraper) SetTimeout(timeout time.Duration) {
 	s.timeout = timeout
 }
 
-func (s *ImageScraper) SetNetworkProfile(profile string) {
-	networkProfiles := getNetworkProfiles()
-
-	s.networkCondition = &network.EmulateNetworkConditionsParams{
-		Latency:            networkProfiles[profile].Latency,
-		DownloadThroughput: networkProfiles[profile].Download,
-		UploadThroughput:   networkProfiles[profile].Upload,
-		Offline:            false,
-	}
+func (s *ImageScraper) SetHeadless(headless bool) {
+	s.headless = headless
 }
 
-func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, error) {
+func (s *ImageScraper) SetNetworkProfile(profile string) error {
+	networkProfiles := getNetworkProfiles()
+	p, exists := networkProfiles[profile]
+	if !exists {
+		return fmt.Errorf("network profile %q not found", profile)
+	}
+
+	s.networkCondition = &network.EmulateNetworkConditionsParams{
+		Latency:            p.Latency,
+		DownloadThroughput: p.Download,
+		UploadThroughput:   p.Upload,
+		Offline:            false,
+	}
+
+	return nil
+}
+
+func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Image, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("headless", false),
+		chromedp.Flag("headless", s.headless),
 		chromedp.Flag("no-sandbox", true),
 		chromedp.Flag("disable-gpu", false),
 		chromedp.Flag("window-size", "1920,1080"),
@@ -80,13 +121,11 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 		handleImageEvents(ev, imagesByRequestID)
 	})
 
-	var images []Image
 	var imgElements []Image
 
 	err := chromedp.Run(ctx,
 		network.Enable(),
 		network.SetCacheDisabled(true),
-
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			if s.networkCondition != nil {
 				if err := network.EmulateNetworkConditions(
@@ -97,24 +136,39 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 				).Do(ctx); err != nil {
 					return fmt.Errorf("failed to set network conditions: %w", err)
 				}
+				log.Printf("Network conditions set: %+v", s.networkCondition)
 			}
 			return nil
 		}),
-
-		chromedp.Navigate(url),
+		chromedp.Navigate(targetURL),
+		chromedp.Sleep(2*time.Second),
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			return chromedp.Evaluate(scrollScript, nil).Do(ctx)
+			_, exp, err := runtime.Evaluate(
+				scrollScript,
+			).Do(ctx)
+			if err != nil {
+				return err
+			}
+			if exp != nil {
+				return exp
+			}
+			return nil
 		}),
-		chromedp.Sleep(s.timeout),
-
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			return chromedp.Evaluate(evalScript, &imgElements).Do(ctx)
-		}),
+		chromedp.Sleep(8*time.Second),
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("error scraping images: %w", err)
+		return nil, fmt.Errorf("error navigating to URL: %w", err)
 	}
+
+	err = chromedp.Run(ctx,
+		chromedp.Evaluate(evalScript, &imgElements),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting images from DOM: %w", err)
+	}
+
+	var images []Image
 
 	for _, img := range imgElements {
 		src := cleanURL(img.Src)
@@ -148,10 +202,28 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, url string) ([]Image, e
 		if img.Network.MimeType == "image/gif" || img.Network.MimeType == "text/plain" {
 			continue
 		}
-
 		images = append(images, img)
 	}
 
+	var resourceTimings []ResourceTimingEntry
+	err = chromedp.Run(ctx, chromedp.Evaluate(resourceTimingScript, &resourceTimings))
+	if err != nil {
+		log.Printf("Warning: failed to retrieve resource timing data: %v", err)
+	} else {
+		timingMap := make(map[string]ResourceTimingEntry)
+		for _, rt := range resourceTimings {
+			cleaned := cleanURL(rt.Name)
+			timingMap[cleaned] = rt
+		}
+
+		for i := range images {
+			if rt, ok := timingMap[images[i].Src]; ok {
+				images[i].Timing = convertTiming(rt)
+			}
+		}
+	}
+
+	log.Printf("Found %d unique images", len(images))
 	return images, nil
 }
 
@@ -196,15 +268,27 @@ func handleResponseReceived(ev *network.EventResponseReceived, imagesByRequestID
 
 	img.Network.Status = ev.Response.Status
 	img.Network.MimeType = ev.Response.MimeType
-	img.Format = ev.Response.MimeType
+	img.Format = normalizeFormat(ev.Response.MimeType)
 	img.Network.Protocol = ev.Response.Protocol
 	img.Network.RemoteIPAddress = ev.Response.RemoteIPAddress
 	img.Network.RemotePort = ev.Response.RemotePort
 	img.Network.ResponseTime = ev.Timestamp
 
 	if img.Network.RequestTime != nil {
-		img.Network.LoadTime = float64(ev.Timestamp.Time().Sub(img.Network.RequestTime.Time()).Seconds())
+		img.Network.LoadTime = ev.Timestamp.Time().Sub(img.Network.RequestTime.Time()).Seconds()
 	}
+
+	requestHeaders := make(map[string]string)
+	for k, v := range ev.Response.RequestHeaders {
+		requestHeaders[k] = fmt.Sprintf("%v", v)
+	}
+	responseHeaders := make(map[string]string)
+	for k, v := range ev.Response.Headers {
+		responseHeaders[k] = fmt.Sprintf("%v", v)
+	}
+
+	img.Network.RequestHeaders = requestHeaders
+	img.Network.ResponseHeaders = responseHeaders
 
 	imagesByRequestID[ev.RequestID] = img
 }
@@ -217,46 +301,16 @@ func handleLoadingFinished(ev *network.EventLoadingFinished, imagesByRequestID m
 	}
 }
 
-func GetImageOverview(images []Image) ImageOverview {
-	overview := ImageOverview{
-		TotalImages: len(images),
-		Formats:     make(map[string]int),
+func normalizeFormat(mimeType string) string {
+	switch mimeType {
+	case "image/jpeg":
+		return "image/jpeg"
+	case "image/png":
+		return "image/png"
+	case "image/webp":
+		return "image/webp"
 	}
-
-	var totalWidth, totalHeight, totalSize, totalCacheHits int
-	var totalRequestTime, totalResponseTime, totalTiming float64
-
-	for _, img := range images {
-		totalSize += img.Size
-		if img.Format != "" {
-			overview.Formats[img.Format]++
-		}
-
-		totalWidth += img.Width
-		totalHeight += img.Height
-
-		if img.Network.RequestTime != nil && img.Network.ResponseTime != nil {
-			requestTime := img.Network.RequestTime.Time()
-			responseTime := img.Network.ResponseTime.Time()
-			totalRequestTime += float64(responseTime.UnixNano()-requestTime.UnixNano()) / 1e6
-			totalResponseTime += float64(responseTime.UnixNano()) / 1e6
-		}
-
-	}
-
-	if overview.TotalImages > 0 {
-		overview.AverageSize = totalSize / overview.TotalImages
-		overview.AverageWidth = totalWidth / overview.TotalImages
-		overview.AverageHeight = totalHeight / overview.TotalImages
-		overview.TotalSize = totalSize
-		overview.CacheHits = totalCacheHits
-
-		overview.AverageRequestTime = totalRequestTime / float64(overview.TotalImages)
-		overview.AverageResponseTime = totalResponseTime / float64(overview.TotalImages)
-		overview.AverageTotalTime = totalTiming / float64(overview.TotalImages)
-	}
-
-	return overview
+	return mimeType
 }
 
 func getNetworkProfiles() map[string]NetworkProfile {
@@ -299,4 +353,26 @@ func cleanURL(imgURL string) string {
 	u.RawQuery = q.Encode()
 
 	return u.String()
+}
+
+func convertTiming(rt ResourceTimingEntry) TimingInfo {
+	timing := TimingInfo{
+		DNSLookup:           rt.DomainLookupEnd - rt.DomainLookupStart,
+		ConnectionTime:      rt.ConnectEnd - rt.ConnectStart,
+		SSLTime:             sslTime(rt),
+		TTFB:                rt.ResponseStart - rt.RequestStart,
+		ContentDownloadTime: rt.ResponseEnd - rt.ResponseStart,
+		TransferSize:        rt.TransferSize,
+		EncodedBodySize:     rt.EncodedBodySize,
+		DecodedBodySize:     rt.DecodedBodySize,
+	}
+
+	return timing
+}
+
+func sslTime(rt ResourceTimingEntry) float64 {
+	if rt.SecureConnectionStart > 0 {
+		return rt.ConnectEnd - rt.SecureConnectionStart
+	}
+	return 0
 }
