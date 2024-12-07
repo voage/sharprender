@@ -28,6 +28,26 @@ const (
 			behavior: 'smooth'
 		});
 	`
+	resourceTimingScript = `
+	(() => {
+		return performance.getEntriesByType('resource')
+			.filter(e => e.initiatorType === 'img')
+			.map(e => ({
+				name: e.name,
+				domainLookupStart: e.domainLookupStart,
+				domainLookupEnd: e.domainLookupEnd,
+				connectStart: e.connectStart,
+				connectEnd: e.connectEnd,
+				secureConnectionStart: e.secureConnectionStart,
+				requestStart: e.requestStart,
+				responseStart: e.responseStart,
+				responseEnd: e.responseEnd,
+				transferSize: e.transferSize,
+				encodedBodySize: e.encodedBodySize,
+				decodedBodySize: e.decodedBodySize
+			}));
+	})();
+	`
 )
 
 type ImageScraper struct {
@@ -177,6 +197,24 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 		}
 	}
 
+	var resourceTimings []ResourceTimingEntry
+	err = chromedp.Run(ctx, chromedp.Evaluate(resourceTimingScript, &resourceTimings))
+	if err != nil {
+		log.Printf("Warning: failed to retrieve resource timing data: %v", err)
+	} else {
+		timingMap := make(map[string]ResourceTimingEntry)
+		for _, rt := range resourceTimings {
+			cleaned := cleanURL(rt.Name)
+			timingMap[cleaned] = rt
+		}
+
+		for i := range images {
+			if rt, ok := timingMap[images[i].Src]; ok {
+				images[i].Timing = convertTiming(rt)
+			}
+		}
+	}
+
 	log.Printf("Found %d unique images", len(images))
 	return images, nil
 }
@@ -259,7 +297,6 @@ func handleResponseReceived(ev *network.EventResponseReceived, imagesByRequestID
 		img.Network.LoadTime = ev.Timestamp.Time().Sub(img.Network.RequestTime.Time()).Seconds()
 	}
 
-	// Extract request and response headers
 	requestHeaders := make(map[string]string)
 	for k, v := range ev.Response.RequestHeaders {
 		requestHeaders[k] = fmt.Sprintf("%v", v)
@@ -293,37 +330,6 @@ func normalizeFormat(mimeType string) string {
 		return "image/webp"
 	}
 	return mimeType
-}
-
-func GetImageOverview(images []Image) ImageOverview {
-	overview := ImageOverview{
-		TotalImages: len(images),
-		Formats:     make(map[string]int),
-	}
-
-	var totalWidth, totalHeight, totalSize int
-	var totalLoadTime float64
-
-	for _, img := range images {
-		totalSize += img.Size
-		if img.Format != "" {
-			overview.Formats[img.Format]++
-		}
-
-		totalWidth += img.Width
-		totalHeight += img.Height
-		totalLoadTime += img.Network.LoadTime
-	}
-
-	if overview.TotalImages > 0 {
-		overview.AverageSize = totalSize / overview.TotalImages
-		overview.AverageWidth = totalWidth / overview.TotalImages
-		overview.AverageHeight = totalHeight / overview.TotalImages
-		overview.TotalSize = totalSize
-		overview.AverageTotalTime = totalLoadTime / float64(overview.TotalImages)
-	}
-
-	return overview
 }
 
 func getNetworkProfiles() map[string]NetworkProfile {
@@ -371,4 +377,24 @@ func cleanURL(imgURL string) string {
 	u.RawQuery = q.Encode()
 
 	return u.String()
+}
+
+func convertTiming(rt ResourceTimingEntry) TimingInfo {
+	return TimingInfo{
+		DNSLookup:           rt.DomainLookupEnd - rt.DomainLookupStart,
+		ConnectionTime:      rt.ConnectEnd - rt.ConnectStart,
+		SSLTime:             sslTime(rt),
+		TTFB:                rt.ResponseStart - rt.RequestStart,
+		ContentDownloadTime: rt.ResponseEnd - rt.ResponseStart,
+		TransferSize:        rt.TransferSize,
+		EncodedBodySize:     rt.EncodedBodySize,
+		DecodedBodySize:     rt.DecodedBodySize,
+	}
+}
+
+func sslTime(rt ResourceTimingEntry) float64 {
+	if rt.SecureConnectionStart > 0 {
+		return rt.ConnectEnd - rt.SecureConnectionStart
+	}
+	return 0
 }
