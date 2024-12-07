@@ -16,7 +16,7 @@ const (
 	defaultTimeout = 10 * time.Second
 	evalScript     = `
 		Array.from(document.images).map(img => ({
-			src: img.src,
+			src: img.currentSrc || img.src,
 			alt: img.alt,
 			width: img.width,
 			height: img.height
