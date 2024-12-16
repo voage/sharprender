@@ -31,6 +31,7 @@ func (h *ScanHandler) GetScanResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+
 	scan, err := h.repo.FindOne(context.Background(), bson.M{"_id": objectID})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

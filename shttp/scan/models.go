@@ -13,3 +13,10 @@ type Scan struct {
 	Images    []simage.Image     `json:"images" bson:"images"`
 	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
 }
+
+type FilterOptions struct {
+	Size *int64
+	ImgType *string
+	LoadTime *int64
+	HostType *string
+}
