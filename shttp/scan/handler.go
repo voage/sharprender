@@ -37,8 +37,12 @@ func (h *ScanHandler) GetScanResults(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	
+	filters := GetFilterOptions(r)
 
-	json.NewEncoder(w).Encode(scan)
+	filteredImages := applyFilters(scan.Images, filters)
+
+	json.NewEncoder(w).Encode(filteredImages)
 }
 
 func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {

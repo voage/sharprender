@@ -1,49 +1,162 @@
 package scan
 
 import (
-	"fmt"
-	"net/http"
-	"net/url"
 	"testing"
+
+	"github.com/voage/sharprender-api/internal/simage"
 )
 
-func TestGetFilterOptions_Print(t *testing.T) {
-	// Simulate a query string
-	queryParams := "size=50000&type=image/jpeg&loadTime=200&hostType=third-party"
-
-	// Create a mock HTTP request
-	req := &http.Request{
-		URL: &url.URL{
-			RawQuery: queryParams,
+var mockImages = []simage.Image{
+	{
+		Src:    "https://example.com/image1.jpg",
+		Format: "image/jpeg",
+		Size:   10000,
+		Network: simage.NetworkInfo{
+			InitiatorURL: "https://example.com",
+			DocumentURL:  "https://example.com",
+			LoadTime:     150,
 		},
+	},
+	{
+		Src:    "https://example.com/image2.png",
+		Format: "image/png",
+		Size:   50000,
+		Network: simage.NetworkInfo{
+			InitiatorURL: "https://thirdparty.com",
+			DocumentURL:  "https://example.com",
+			LoadTime:     300,
+		},
+	},
+	{
+		Src:    "https://example.com/image3.gif",
+		Format: "image/gif",
+		Size:   20000,
+		Network: simage.NetworkInfo{
+			InitiatorURL: "https://example.com",
+			DocumentURL:  "https://example.com",
+			LoadTime:     50,
+		},
+	},
+}
+
+func TestApplyFilters_SizeFilter(t *testing.T) {
+	filters := FilterOptions{
+		Size: &[]int64{30000}[0],
 	}
 
-	// Call GetFilterOptions
-	filters := GetFilterOptions(req)
+	result := applyFilters(mockImages, filters)
 
-	// Print the results to the console
-	fmt.Println("Parsed FilterOptions:")
-	if filters.Size != nil {
-		fmt.Printf("Size: %d\n", *filters.Size)
-	} else {
-		fmt.Println("Size: nil")
+	if len(result) != 1 {
+		t.Errorf("Expected 1 image, got %d", len(result))
 	}
 
-	if filters.ImgType != nil {
-		fmt.Printf("Type: %s\n", *filters.ImgType)
-	} else {
-		fmt.Println("Type: nil")
+	if result[0].Src != "https://example.com/image2.png" {
+		t.Errorf("Expected 'image2.png', got '%s'", result[0].Src)
+	}
+}
+
+func TestApplyFilters_TypeFilter(t *testing.T) {
+	filters := FilterOptions{
+		ImgType: &[]string{"image/jpeg"}[0],
 	}
 
-	if filters.LoadTime != nil {
-		fmt.Printf("LoadTime: %d\n", *filters.LoadTime)
-	} else {
-		fmt.Println("LoadTime: nil")
+	result := applyFilters(mockImages, filters)
+
+	if len(result) != 1 {
+		t.Errorf("Expected 1 image, got %d", len(result))
 	}
 
-	if filters.HostType != nil {
-		fmt.Printf("HostType: %s\n", *filters.HostType)
-	} else {
-		fmt.Println("HostType: nil")
+	if result[0].Src != "https://example.com/image1.jpg" {
+		t.Errorf("Expected 'image1.jpg', got '%s'", result[0].Src)
+	}
+}
+
+func TestApplyFilters_LoadTimeFilter(t *testing.T) {
+	filters := FilterOptions{
+		LoadTime: &[]int64{200}[0],
+	}
+
+	result := applyFilters(mockImages, filters)
+
+	if len(result) != 1 {
+		t.Errorf("Expected 2 images, got %d", len(result))
+	}
+
+	if result[0].Src != "https://example.com/image2.png" {
+		t.Errorf("Expected 'image2.jpg', got '%s'", result[0].Src)
+	}
+
+}
+
+func TestApplyFilters_HostTypeFilter_FirstParty(t *testing.T) {
+	filters := FilterOptions{
+		HostType: &[]string{"first-party"}[0],
+	}
+
+	result := applyFilters(mockImages, filters)
+
+	if len(result) != 2 {
+		t.Errorf("Expected 2 images, got %d", len(result))
+	}
+
+	if result[0].Src != "https://example.com/image1.jpg" {
+		t.Errorf("Expected 'image1.jpg', got '%s'", result[0].Src)
+	}
+
+	if result[1].Src != "https://example.com/image3.gif" {
+		t.Errorf("Expected 'image3.gif', got '%s'", result[1].Src)
+	}
+}
+
+func TestApplyFilters_HostTypeFilter_ThirdParty(t *testing.T) {
+	filters := FilterOptions{
+		HostType: &[]string{"third-party"}[0],
+	}
+
+	result := applyFilters(mockImages, filters)
+
+	if len(result) != 1 {
+		t.Errorf("Expected 1 image, got %d", len(result))
+	}
+
+	if result[0].Src != "https://example.com/image2.png" {
+		t.Errorf("Expected 'image2.png', got '%s'", result[0].Src)
+	}
+}
+
+func TestApplyFilters_MultipleFilters(t *testing.T) {
+	filters := FilterOptions{
+		Size:     &[]int64{15000}[0],
+		ImgType:  &[]string{"image/jpeg"}[0],
+		HostType: &[]string{"first-party"}[0],
+	}
+
+	result := applyFilters(mockImages, filters)
+
+	// Check the number of images returned
+	if len(result) != 0 {
+		t.Errorf("Expected 0 images, got %d", len(result))
+	}
+}
+
+func TestApplyFilters_NoFilters(t *testing.T) {
+	filters := FilterOptions{}
+
+	result := applyFilters(mockImages, filters)
+
+	if len(result) != len(mockImages) {
+		t.Errorf("Expected %d images, got %d", len(mockImages), len(result))
+	}
+}
+
+func TestApplyFilters_NoMatches(t *testing.T) {
+	filters := FilterOptions{
+		Size: &[]int64{1000000}[0],
+	}
+
+	result := applyFilters(mockImages, filters)
+
+	if len(result) != 0 {
+		t.Errorf("Expected 0 images, got %d", len(result))
 	}
 }
