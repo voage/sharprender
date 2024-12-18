@@ -7,7 +7,8 @@ import (
 
 func NewScanRoutes(mongoClient *mongo.Client) *chi.Mux {
 	repo := NewScanRepository(mongoClient)
-	handler := NewScanHandler(repo)
+	service := NewScanService(repo)
+	handler := NewScanHandler(service, repo)
 
 	router := chi.NewRouter()
 	router.Get("/{id}", handler.GetScanResults)

@@ -10,39 +10,40 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/voage/sharprender-api/internal/simage"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type ScanHandler struct {
-	repo *ScanRepository
+	service *ScanService
+	repo    *ScanRepository
 }
 
-func NewScanHandler(repo *ScanRepository) *ScanHandler {
-	return &ScanHandler{repo: repo}
+func NewScanHandler(service *ScanService, repo *ScanRepository) *ScanHandler {
+	return &ScanHandler{service: service, repo: repo}
 }
 
 func (h *ScanHandler) GetScanResults(w http.ResponseWriter, r *http.Request) {
+	// Parse scan ID
 	id := chi.URLParam(r, "id")
-
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid scan ID", http.StatusBadRequest)
 		return
 	}
 
-
-	scan, err := h.repo.FindOne(context.Background(), bson.M{"_id": objectID})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	
+	// Parse query filters
 	filters := GetFilterOptions(r)
 
-	filteredImages := applyFilters(scan.Images, filters)
+	// Fetch results from service
+	result, err := h.service.GetFilteredAndAggregatedResults(r.Context(), objectID, filters)
+	if err != nil {
+		http.Error(w, "Failed to fetch scan results", http.StatusInternalServerError)
+		return
+	}
 
-	json.NewEncoder(w).Encode(filteredImages)
+	// Return results
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }
 
 func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {

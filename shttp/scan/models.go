@@ -15,8 +15,13 @@ type Scan struct {
 }
 
 type FilterOptions struct {
-	Size *int64
-	ImgType *string
+	Size     *int64
+	ImgType  *string
 	LoadTime *int64
 	HostType *string
+}
+
+type ScanResult struct {
+	Images       []simage.Image         `json:"images"`
+	Aggregations map[string]interface{} `json:"aggregations"`
 }
