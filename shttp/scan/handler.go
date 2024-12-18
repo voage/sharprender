@@ -32,7 +32,7 @@ func (h *ScanHandler) GetScanResults(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse query filters
-	filters := GetFilterOptions(r)
+	filters := parseFilterOptions(r)
 
 	// Fetch results from service
 	result, err := h.service.GetFilteredAndAggregatedResults(r.Context(), objectID, filters)
@@ -43,6 +43,7 @@ func (h *ScanHandler) GetScanResults(w http.ResponseWriter, r *http.Request) {
 
 	// Return results
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(result)
 }
 

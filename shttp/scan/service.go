@@ -19,7 +19,8 @@ func NewScanService(repo *ScanRepository) *ScanService {
 }
 
 // Parse the URL and store the query params in a FilterOptions struct
-func GetFilterOptions(r *http.Request) FilterOptions {
+func parseFilterOptions(r *http.Request) FilterOptions {
+
 
 	var filters FilterOptions
 
