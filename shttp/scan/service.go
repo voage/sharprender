@@ -100,7 +100,7 @@ func calculateAggregations(images []simage.Image) map[string]interface{} {
 	}
 }
 
-func (s *ScanService) GetFilteredAndAggregatedResults(ctx context.Context, id primitive.ObjectID, filters FilterOptions) (*ScanResult, error) {
+func (s *ScanService) fetchScanResult(ctx context.Context, id primitive.ObjectID, filters FilterOptions) (*ScanResult, error) {
 	imageFilter := buildMongoFilterQuery(filters)
 
 	// Fetch scan with filtered images

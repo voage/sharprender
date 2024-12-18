@@ -35,7 +35,7 @@ func (h *ScanHandler) GetScanResults(w http.ResponseWriter, r *http.Request) {
 	filters := parseFilterOptions(r)
 
 	// Fetch results from service
-	result, err := h.service.GetFilteredAndAggregatedResults(r.Context(), objectID, filters)
+	result, err := h.service.fetchScanResult(r.Context(), objectID, filters)
 	if err != nil {
 		http.Error(w, "Failed to fetch scan results", http.StatusInternalServerError)
 		return
