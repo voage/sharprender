@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/time/rate"
+
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -97,4 +99,75 @@ func parseResponse(reply string) (*Recommendation, error) {
 		return nil, fmt.Errorf("failed to parse AI response: %v\nResponse was: %s", err, jsonStr)
 	}
 	return &recommendation, nil
+}
+
+type job struct {
+	index int
+	image Image
+}
+
+type jobResult struct {
+	index          int
+	recommendation *Recommendation
+	err            error
+}
+
+var limiter = rate.NewLimiter(8.33, 10)
+
+func worker(jobsCh <-chan job, resultsCh chan<- jobResult) {
+
+	for j := range jobsCh {
+		// wait until we have a token to proceed.
+		if err := limiter.Wait(context.Background()); err != nil {
+			resultsCh <- jobResult{
+				index: j.index,
+				err:   fmt.Errorf("rate limit error: %w", err),
+			}
+			continue
+		}
+
+		// Make the actual OpenAI call now that we've waited for a token.
+		rec, err := GetRecommendations(j.image)
+		resultsCh <- jobResult{
+			index:          j.index,
+			recommendation: rec,
+			err:            err,
+		}
+	}
+}
+
+func CreateAIRecommendations(images []Image) ([]Image, error) {
+
+	workerCount := 5
+
+	jobsCh := make(chan job, len(images))
+	resultsCh := make(chan jobResult, len(images))
+
+	// Start workerCount goroutines.
+	for i := 0; i < workerCount; i++ {
+		go worker(jobsCh, resultsCh)
+	}
+
+	// Send all images into the job channel.
+	for i, img := range images {
+		jobsCh <- job{index: i, image: img}
+	}
+	close(jobsCh)
+
+	// Copy the original images to populate them with AI results.
+	updatedImages := make([]Image, len(images))
+	copy(updatedImages, images)
+
+	// Collect all results and preserve order.
+	for i := 0; i < len(images); i++ {
+		result := <-resultsCh
+		if result.err != nil {
+			return nil, fmt.Errorf("error getting recommendations for image at index %d: %w",
+				result.index, result.err)
+		}
+		updatedImages[result.index].AIRecommendation = *result.recommendation
+	}
+
+	return updatedImages, nil
+
 }
