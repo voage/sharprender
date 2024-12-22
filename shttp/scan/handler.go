@@ -72,9 +72,16 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resultsWithAI, err := simage.CreateAIRecommendations(results)
+	if err != nil {
+		log.Printf("Failed to get AI recommendations: %v", err)
+		http.Error(w, "Failed to get AI recommendations", http.StatusInternalServerError)
+		return
+	}
+
 	scan := Scan{
 		URL:       urlParam,
-		Images:    results,
+		Images:    resultsWithAI,
 		CreatedAt: time.Now(),
 	}
 
