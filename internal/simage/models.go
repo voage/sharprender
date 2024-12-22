@@ -25,14 +25,15 @@ type ImageParams struct {
 }
 
 type Image struct {
-	Src     string      `json:"src" bson:"src"`
-	Alt     string      `json:"alt" bson:"alt"`
-	Width   int         `json:"width" bson:"width"`
-	Height  int         `json:"height" bson:"height"`
-	Format  string      `json:"format" bson:"format"`
-	Size    int         `json:"size" bson:"size"`
-	Network NetworkInfo `json:"network" bson:"network"`
-	Timing  TimingInfo  `json:"timing" bson:"timing"`
+	Src              string         `json:"src" bson:"src"`
+	Alt              string         `json:"alt" bson:"alt"`
+	Width            int            `json:"width" bson:"width"`
+	Height           int            `json:"height" bson:"height"`
+	Format           string         `json:"format" bson:"format"`
+	Size             int            `json:"size" bson:"size"`
+	Network          NetworkInfo    `json:"network" bson:"network"`
+	Timing           TimingInfo     `json:"timing" bson:"timing"`
+	AIRecommendation Recommendation `json:"ai_recommendation" bson:"ai_recommendation"`
 }
 
 type NetworkInfo struct {
