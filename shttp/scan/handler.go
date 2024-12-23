@@ -72,7 +72,10 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resultsWithAI, err := simage.CreateAIRecommendations(results)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	resultsWithAI, err := simage.CreateAIRecommendations(ctx, results)
 	if err != nil {
 		log.Printf("Failed to get AI recommendations: %v", err)
 		http.Error(w, "Failed to get AI recommendations", http.StatusInternalServerError)

@@ -114,7 +114,7 @@ type jobResult struct {
 
 var limiter = rate.NewLimiter(8.33, 10)
 
-func worker(jobsCh <-chan job, resultsCh chan<- jobResult) {
+func worker(ctx context.Context, jobsCh <-chan job, resultsCh chan<- jobResult) {
 
 	for j := range jobsCh {
 		// wait until we have a token to proceed.
@@ -136,7 +136,7 @@ func worker(jobsCh <-chan job, resultsCh chan<- jobResult) {
 	}
 }
 
-func CreateAIRecommendations(images []Image) ([]Image, error) {
+func CreateAIRecommendations(ctx context.Context, images []Image) ([]Image, error) {
 
 	workerCount := 5
 
@@ -145,7 +145,7 @@ func CreateAIRecommendations(images []Image) ([]Image, error) {
 
 	// Start workerCount goroutines.
 	for i := 0; i < workerCount; i++ {
-		go worker(jobsCh, resultsCh)
+		go worker(ctx, jobsCh, resultsCh)
 	}
 
 	// Send all images into the job channel.
