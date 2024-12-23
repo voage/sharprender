@@ -6,7 +6,7 @@ dev:
 	make web
 
 api:
-	cd cmd/api && air
+	air
 
 web:
 	cd web && pnpm install && pnpm dev
