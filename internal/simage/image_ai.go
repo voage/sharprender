@@ -118,7 +118,7 @@ func worker(ctx context.Context, jobsCh <-chan job, resultsCh chan<- jobResult) 
 
 	for j := range jobsCh {
 		// wait until we have a token to proceed.
-		if err := limiter.Wait(context.Background()); err != nil {
+		if err := limiter.Wait(ctx); err != nil {
 			resultsCh <- jobResult{
 				index: j.index,
 				err:   fmt.Errorf("rate limit error: %w", err),
