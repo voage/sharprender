@@ -10,8 +10,8 @@ This is the API for the Sharprender project, it also houses the core packages fo
 ## Running the API
 
 - Install [air](https://github.com/cosmtrek/air)
-- Run `air`
+- Run `make dev`
 
 ```bash
-air
+make dev
 ```
