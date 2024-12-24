@@ -1,9 +1,9 @@
-import Navbar from "@/components/Navbar";
+import { DashboardLayout } from "@/components/DashboardLayout";
 
 export default function Home() {
   return (
-    <div>
-      <Navbar title="Home" />
-    </div>
+    <DashboardLayout>
+      <div>Scan your QR code to get started</div>
+    </DashboardLayout>
   );
 }

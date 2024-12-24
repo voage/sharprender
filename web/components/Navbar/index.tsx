@@ -7,17 +7,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SignOutButton, useUser } from "@clerk/nextjs";
 
-interface NavbarProps {
-  title: string;
-}
-
-export default function Navbar({ title }: NavbarProps) {
+export default function Navbar() {
   const { user } = useUser();
 
   return (
     <nav className="border-b px-4 py-3 bg-background">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <div className="font-semibold text-lg">{title}</div>
+        <div className="font-semibold text-lg">Hi, {user?.firstName}</div>
 
         <DropdownMenu>
           <DropdownMenuTrigger className="outline-none">
