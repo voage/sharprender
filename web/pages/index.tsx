@@ -1,3 +1,9 @@
+import { DashboardLayout } from "@/components/DashboardLayout";
+
 export default function Home() {
-  return <div>Hello World</div>;
+  return (
+    <DashboardLayout>
+      <div>Scan your QR code to get started</div>
+    </DashboardLayout>
+  );
 }
