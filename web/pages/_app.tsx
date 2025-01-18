@@ -14,7 +14,7 @@ const queryClient = new QueryClient();
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <ClerkProvider>
+    <ClerkProvider {...pageProps}>
       <QueryClientProvider client={queryClient}>
         <main className={cn(karla.variable, "font-karla")}>
           <Component {...pageProps} />
