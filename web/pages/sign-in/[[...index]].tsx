@@ -8,7 +8,7 @@ export default function Page() {
       title="Welcome Back"
       description="Sign in to your account to continue"
     >
-      <div className="w-full max-w-md mx-auto">
+      <div className="w-full">
         <SignIn appearance={clerkAppearance} />
       </div>
     </AuthLayout>
