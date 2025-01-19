@@ -2,8 +2,16 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { Table } from "react-aria-components";
 
-import { Cell, Row, TableBody, TableHeader } from "react-aria-components";
+import {
+  Cell,
+  Row,
+  TableBody,
+  TableHeader,
+  DialogTrigger,
+  Button,
+} from "react-aria-components";
 import { Column } from "react-aria-components";
+import DashboardImageDetailModal from "./DashboardImageDetailModal";
 
 const mockData = [
   {
@@ -119,6 +127,7 @@ const DashboardTableOverview = () => {
           <TableColumn isRowHeader>Format</TableColumn>
           <TableColumn isRowHeader>Load Time</TableColumn>
           <TableColumn isRowHeader>Status</TableColumn>
+          <TableColumn isRowHeader>Actions</TableColumn>
         </TableHeader>
         <TableBody>
           {mockData.map((item) => (
@@ -150,6 +159,12 @@ const DashboardTableOverview = () => {
                 >
                   {item.status}
                 </span>
+              </TableCell>
+              <TableCell>
+                <DialogTrigger>
+                  <Button className="text-sm text-gray-700">View</Button>
+                  <DashboardImageDetailModal />
+                </DialogTrigger>
               </TableCell>
             </Row>
           ))}
