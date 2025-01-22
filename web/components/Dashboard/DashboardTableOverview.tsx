@@ -12,69 +12,11 @@ import {
 } from "react-aria-components";
 import { Column } from "react-aria-components";
 import DashboardImageDetailModal from "./DashboardImageDetailModal";
+import { ImageScanResult } from "@/types/scan";
 
-const mockData = [
-  {
-    id: 1,
-    thumbnail: "https://picsum.photos/seed/1/40",
-    fileName: "discord_icon.png",
-    dimensions: "16x16 px",
-    fileSize: "107 KB",
-    format: "PNG",
-    loadTime: "52 ms",
-    status: "success",
-  },
-  {
-    id: 2,
-    thumbnail: "https://picsum.photos/seed/2/40",
-    fileName: "companyBanner.png",
-    dimensions: "896x45 px",
-    fileSize: "40 KB",
-    format: "PNG",
-    loadTime: "130 ms",
-    status: "warning",
-  },
-  {
-    id: 3,
-    thumbnail: "https://picsum.photos/seed/3/40",
-    fileName: "Google_logo.png",
-    dimensions: "2008x2048 px",
-    fileSize: "83 KB",
-    format: "PNG",
-    loadTime: "168 ms",
-    status: "error",
-  },
-  {
-    id: 4,
-    thumbnail: "https://picsum.photos/seed/4/40",
-    fileName: "Google_logo.png",
-    dimensions: "2008x2048 px",
-    fileSize: "83 KB",
-    format: "PNG",
-    loadTime: "168 ms",
-    status: "warning",
-  },
-  {
-    id: 5,
-    thumbnail: "https://picsum.photos/seed/5/40",
-    fileName: "Google_logo.png",
-    dimensions: "2008x2048 px",
-    fileSize: "83 KB",
-    format: "PNG",
-    loadTime: "168 ms",
-    status: "success",
-  },
-  {
-    id: 6,
-    thumbnail: "https://picsum.photos/seed/6/40",
-    fileName: "Google_logo.png",
-    dimensions: "2008x2048 px",
-    fileSize: "83 KB",
-    format: "PNG",
-    loadTime: "168 ms",
-    status: "error",
-  },
-];
+interface DashboardTableOverviewProps {
+  images: ImageScanResult[];
+}
 
 const TableColumn = ({
   children,
@@ -112,7 +54,7 @@ const TableCell = ({
   );
 };
 
-const DashboardTableOverview = () => {
+const DashboardTableOverview = ({ images }: DashboardTableOverviewProps) => {
   return (
     <div className="w-full rounded-lg border border-gray-100 shadow-sm shadow-gray-100">
       <div className="px-6 py-4 border-b border-gray-100">
@@ -130,44 +72,60 @@ const DashboardTableOverview = () => {
           <TableColumn isRowHeader>Actions</TableColumn>
         </TableHeader>
         <TableBody>
-          {mockData.map((item) => (
-            <Row key={item.id} className="hover:bg-gray-50">
-              <TableCell>
-                <Image
-                  src={item.thumbnail}
-                  alt={item.fileName}
-                  width={40}
-                  height={40}
-                  className="rounded-lg object-cover"
-                />
-              </TableCell>
-              <TableCell>{item.fileName}</TableCell>
-              <TableCell>{item.dimensions}</TableCell>
-              <TableCell>{item.fileSize}</TableCell>
-              <TableCell>{item.format}</TableCell>
-              <TableCell>{item.loadTime}</TableCell>
-              <TableCell>
-                <span
-                  className={cn(
-                    "inline-flex px-2 py-1 rounded-full text-xs font-medium",
-                    {
-                      "bg-green-50 text-green-700": item.status === "success",
-                      "bg-yellow-50 text-yellow-700": item.status === "warning",
-                      "bg-red-50 text-red-700": item.status === "error",
-                    }
-                  )}
-                >
-                  {item.status}
-                </span>
-              </TableCell>
-              <TableCell>
-                <DialogTrigger>
-                  <Button className="text-sm text-gray-700">View</Button>
-                  <DashboardImageDetailModal />
-                </DialogTrigger>
-              </TableCell>
-            </Row>
-          ))}
+          {images.map((image, index) => {
+            const loadTimeStatus =
+              image.network.load_time < 100
+                ? "success"
+                : image.network.load_time < 200
+                ? "warning"
+                : "error";
+
+            return (
+              <Row
+                key={image.network.request_id || index}
+                className="hover:bg-gray-50"
+              >
+                <TableCell>
+                  <Image
+                    src={image.src}
+                    alt={image.alt || "Image thumbnail"}
+                    width={40}
+                    height={40}
+                    className="rounded-lg object-cover"
+                  />
+                </TableCell>
+                <TableCell>{image.alt || "No alt text"}</TableCell>
+                <TableCell>{`${image.width}x${image.height} px`}</TableCell>
+                <TableCell>{`${(image.size / 1024).toFixed(1)} KB`}</TableCell>
+                <TableCell>{image.format.toUpperCase()}</TableCell>
+                <TableCell>{`${image.network.load_time.toFixed(
+                  0
+                )} ms`}</TableCell>
+                <TableCell>
+                  <span
+                    className={cn(
+                      "inline-flex px-2 py-1 rounded-full text-xs font-medium",
+                      {
+                        "bg-green-50 text-green-700":
+                          loadTimeStatus === "success",
+                        "bg-yellow-50 text-yellow-700":
+                          loadTimeStatus === "warning",
+                        "bg-red-50 text-red-700": loadTimeStatus === "error",
+                      }
+                    )}
+                  >
+                    {loadTimeStatus}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <DialogTrigger>
+                    <Button className="text-sm text-gray-700">View</Button>
+                    <DashboardImageDetailModal image={image} />
+                  </DialogTrigger>
+                </TableCell>
+              </Row>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

@@ -21,7 +21,6 @@ func NewScanService(repo *ScanRepository) *ScanService {
 // Parse the URL and store the query params in a FilterOptions struct
 func parseFilterOptions(r *http.Request) FilterOptions {
 
-
 	var filters FilterOptions
 
 	if sizeStr := r.URL.Query().Get("size"); sizeStr != "" {
@@ -79,10 +78,16 @@ func buildMongoFilterQuery(filters FilterOptions) bson.M {
 func calculateAggregations(images []simage.Image) map[string]interface{} {
 	var totalSize, totalLoadTime int64
 	var avgSize, avgLoadTime float64
+	var formatDistribution map[string]int = make(map[string]int)
 
 	for _, img := range images {
 		totalSize += int64(img.Size)
 		totalLoadTime += int64(img.Network.LoadTime)
+		format := img.Format
+		if format == "" {
+			format = "unknown" // Categorize empty formats as "unknown" for now; fix later.
+		}
+		formatDistribution[format]++
 	}
 
 	count := len(images)
@@ -92,24 +97,23 @@ func calculateAggregations(images []simage.Image) map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"avgSize":       avgSize,
-		"totalSize":     totalSize,
-		"avgLoadTime":   avgLoadTime,
-		"totalLoadTime": totalLoadTime,
-		"imageCount":    count,
+		"avgSize":            avgSize,
+		"totalSize":          totalSize,
+		"avgLoadTime":        avgLoadTime,
+		"totalLoadTime":      totalLoadTime,
+		"imageCount":         count,
+		"formatDistribution": formatDistribution,
 	}
 }
 
 func (s *ScanService) fetchScanResult(ctx context.Context, id primitive.ObjectID, filters FilterOptions) (*ScanResult, error) {
 	imageFilter := buildMongoFilterQuery(filters)
 
-	// Fetch scan with filtered images
 	scan, err := s.repo.FindWithFilter(ctx, bson.M{"_id": id}, imageFilter)
 	if err != nil {
 		return nil, err
 	}
 
-	// Calculate aggregations for all images
 	aggregations := calculateAggregations(scan.Images)
 
 	return &ScanResult{

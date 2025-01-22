@@ -199,7 +199,7 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 	}
 
 	for _, img := range imagesByRequestID {
-		if img.Network.MimeType == "image/gif" || img.Network.MimeType == "text/plain" {
+		if img.Network.MimeType == "image/gif" || img.Network.MimeType == "text/plain" || img.Size == 0 {
 			continue
 		}
 		images = append(images, img)

@@ -8,15 +8,24 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const formatData = [
-  { format: "PNG", count: 3 },
-  { format: "WebP", count: 1 },
-  { format: "SVG", count: 1 },
-];
-
 const COLORS = ["#0EA5E9", "#0284C7", "#0369A1", "#0C4A6E"];
 
-const DashboardPieChart = () => {
+interface DashboardPieChartProps {
+  formatDistribution: Record<string, number>;
+  totalImages: number;
+}
+
+const DashboardPieChart = ({
+  formatDistribution,
+  totalImages,
+}: DashboardPieChartProps) => {
+  const chartData = Object.entries(formatDistribution).map(
+    ([format, count]) => ({
+      format: format.replace("image/", "").toUpperCase(),
+      count,
+    })
+  );
+
   const CustomTooltip = ({
     active,
     payload,
@@ -27,7 +36,12 @@ const DashboardPieChart = () => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-2 border border-gray-200 rounded-md shadow-sm">
-          <p className="text-sm font-medium">{`${payload[0].name}: ${payload[0].value}`}</p>
+          <p className="text-sm font-medium">
+            {`${payload[0].name}: ${payload[0].value} (${(
+              (payload[0].value / totalImages) *
+              100
+            ).toFixed(1)}%)`}
+          </p>
         </div>
       );
     }
@@ -42,7 +56,7 @@ const DashboardPieChart = () => {
       <ResponsiveContainer width="100%" height={300}>
         <PieChart width={400} height={300}>
           <Pie
-            data={formatData}
+            data={chartData}
             dataKey="count"
             nameKey="format"
             cx="50%"
@@ -52,11 +66,11 @@ const DashboardPieChart = () => {
             fill="#8884d8"
             paddingAngle={5}
             label={({ name, percent }) =>
-              `${name} (${(percent * 100).toFixed(0)}%)`
+              `${name.toLowerCase()} (${(percent * 100).toFixed(0)}%)`
             }
             labelLine={false}
           >
-            {formatData.map((entry, index) => (
+            {chartData.map((_, index) => (
               <Cell
                 key={`cell-${index}`}
                 fill={COLORS[index % COLORS.length]}
@@ -71,7 +85,9 @@ const DashboardPieChart = () => {
             height={36}
             iconType="circle"
             formatter={(value) => (
-              <span className="text-sm text-gray-600">{value}</span>
+              <span className="text-sm text-gray-600">
+                {value.toLowerCase()}
+              </span>
             )}
           />
         </PieChart>

@@ -48,14 +48,20 @@ func (h *ScanHandler) GetScanResults(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 
-	urlParam := r.URL.Query().Get("url")
-	if urlParam == "" {
+	if req.URL == "" {
 		http.Error(w, "Missing URL parameter", http.StatusBadRequest)
 		return
 	}
 
-	_, err := url.ParseRequestURI(urlParam)
+	_, err := url.ParseRequestURI(req.URL)
 	if err != nil {
 		http.Error(w, "Invalid URL", http.StatusBadRequest)
 		return
@@ -65,7 +71,7 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 
 	imageScraper.SetNetworkProfile("No Throttling")
 
-	results, err := imageScraper.ScrapeImages(r.Context(), urlParam)
+	results, err := imageScraper.ScrapeImages(r.Context(), req.URL)
 	if err != nil {
 		log.Printf("Failed to scrape: %v", err)
 		http.Error(w, "Failed to scrape", http.StatusInternalServerError)
@@ -83,12 +89,12 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	scan := Scan{
-		URL:       urlParam,
+		URL:       req.URL,
 		Images:    resultsWithAI,
 		CreatedAt: time.Now(),
 	}
 
-	err = h.repo.Create(context.Background(), &scan)
+	id, err := h.repo.Create(context.Background(), &scan)
 	if err != nil {
 		http.Error(w, "Failed to create scan", http.StatusInternalServerError)
 		return
@@ -96,5 +102,5 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(scan)
+	json.NewEncoder(w).Encode(map[string]string{"scan_id": id.Hex()})
 }
