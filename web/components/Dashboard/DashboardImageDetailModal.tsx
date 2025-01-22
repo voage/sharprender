@@ -1,39 +1,9 @@
+import { ImageScanResult } from "@/types/scan";
 import { CheckCircle2Icon, NetworkIcon, SparkleIcon } from "lucide-react";
 import Image from "next/image";
 import { Button, Dialog, Modal } from "react-aria-components";
 
-export const mockImageData = {
-  src: "https://picsum.photos/800/600",
-  alt: "Sample image",
-  width: { $numberInt: "800" },
-  height: { $numberInt: "600" },
-  format: "image/png",
-  size: { $numberInt: "107806" },
-  network: {
-    status: { $numberLong: "200" },
-    protocol: "h3",
-    load_time: { $numberDouble: "0.053244" },
-    mime_type: "image/png",
-    response_headers: {
-      "x-cache": "HIT",
-      "content-length": "107498",
-    },
-  },
-  ai_recommendation: {
-    formatrecommendations:
-      "Convert the image from PNG to SVG if it's a simple vector graphic, as SVGs are scalable and have smaller file sizes.",
-    resizerecommendations:
-      "Consider resizing the image to 400x300px for better performance while maintaining quality.",
-    compressionrecommendations:
-      "The image could be compressed further to reduce file size by approximately 40%.",
-    cachingrecommendations:
-      "Implement browser caching with a max-age of 1 week for improved load times.",
-    additionalrecommendations:
-      "Add lazy loading for images below the fold to improve initial page load time.",
-  },
-};
-
-const DashboardImageDetailModal = () => {
+const DashboardImageDetailModal = ({ image }: { image: ImageScanResult }) => {
   return (
     <Modal className="fixed inset-0 z-50 overflow-auto bg-black/25 flex min-h-full items-center justify-center p-4">
       <Dialog className="w-full max-w-4xl rounded-lg bg-white p-6 shadow-xl flex flex-col gap-4">
@@ -41,8 +11,8 @@ const DashboardImageDetailModal = () => {
           <div className="relative col-span-4 flex flex-col gap-4">
             <div className="relative w-full max-w-xs h-full">
               <Image
-                src={mockImageData.src}
-                alt={mockImageData.alt}
+                src={image.src}
+                alt={image.alt}
                 fill
                 className="rounded-xl object-cover"
               />
@@ -71,20 +41,21 @@ const DashboardImageDetailModal = () => {
                 {[
                   {
                     label: "Size",
-                    value: `${(
-                      parseInt(mockImageData.size.$numberInt) / 1024
-                    ).toFixed(1)} KB`,
+                    value: `${(image.size / 1024).toFixed(1)} KB`,
                   },
-                  { label: "Format", value: mockImageData.format },
+                  { label: "Format", value: image.format },
                   {
                     label: "Dimensions",
-                    value: `${mockImageData.width.$numberInt} × ${mockImageData.height.$numberInt}`,
+                    value: `${image.width} × ${image.height}`,
                   },
-                  { label: "File Name", value: mockImageData.alt },
+                  {
+                    label: "File Name",
+                    value: image.src.split("/").pop() || image.alt,
+                  },
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className="group transition-all duration-200  rounded-lg"
+                    className="group transition-all duration-200 rounded-lg"
                   >
                     <dt className="text-gray-500 text-xs mb-0.5">
                       {item.label}
@@ -108,32 +79,28 @@ const DashboardImageDetailModal = () => {
                 {[
                   {
                     label: "Status",
-                    value: mockImageData.network.status.$numberLong,
-                    badge: "success",
+                    value: image.network.status,
+                    badge: image.network.status === 200 ? "success" : undefined,
                   },
                   {
                     label: "Protocol",
-                    value: mockImageData.network.protocol.toUpperCase(),
+                    value: image.network.protocol.toUpperCase(),
                   },
                   {
                     label: "Load Time",
-                    value: `${mockImageData.network.load_time.$numberDouble}s`,
+                    value: `${image.network.load_time.toFixed(3)}s`,
                   },
                   {
                     label: "MIME Type",
-                    value: mockImageData.network.mime_type,
+                    value: image.network.mime_type,
                   },
                   {
                     label: "Cache Status",
-                    value: mockImageData.network.response_headers["x-cache"],
+                    value: "HIT", // TODO: get from response headers
                   },
                   {
                     label: "Content Length",
-                    value: `${(
-                      parseInt(
-                        mockImageData.network.response_headers["content-length"]
-                      ) / 1024
-                    ).toFixed(1)} KB`,
+                    value: `${(image.size / 1024).toFixed(1)} KB`, // TODO: get from response headers
                   },
                 ].map((item) => (
                   <div
@@ -165,16 +132,14 @@ const DashboardImageDetailModal = () => {
               Recommendations
             </h4>
             <ul className="flex flex-col gap-2">
-              {Object.entries(mockImageData.ai_recommendation).map(
-                ([key, value]) => (
-                  <li
-                    key={key}
-                    className="text-gray-700 flex text-sm tracking-wide items-center gap-2"
-                  >
-                    <CheckCircle2Icon className="w-4 h-4" /> {value}
-                  </li>
-                )
-              )}
+              {Object.entries(image.ai_recommendation).map(([key, value]) => (
+                <li
+                  key={key}
+                  className="text-gray-700 flex text-sm tracking-wide items-center gap-2"
+                >
+                  <CheckCircle2Icon className="w-4 h-4" /> {value}
+                </li>
+              ))}
             </ul>
           </div>
         </section>

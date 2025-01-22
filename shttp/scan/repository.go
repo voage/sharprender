@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -23,9 +24,13 @@ func (r *ScanRepository) FindOne(ctx context.Context, filter interface{}) (*Scan
 	return &scan, err
 }
 
-func (r *ScanRepository) Create(ctx context.Context, scan *Scan) error {
-	_, err := r.collection.InsertOne(ctx, scan)
-	return err
+func (r *ScanRepository) Create(ctx context.Context, scan *Scan) (primitive.ObjectID, error) {
+	result, err := r.collection.InsertOne(ctx, scan)
+	if err != nil {
+		return primitive.ObjectID{}, err
+	}
+
+	return result.InsertedID.(primitive.ObjectID), nil
 }
 
 // FindWithFilter fetches a scan document and filters its images using aggregation

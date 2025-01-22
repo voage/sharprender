@@ -1,44 +1,34 @@
-import DashboardOverviewCard from "@/components/Dashboard/DashboardOverviewCard";
-import DashboardTableOverview from "@/components/Dashboard/DashboardTableOverview";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import dynamic from "next/dynamic";
-import { Bolt, Globe, Paperclip } from "lucide-react";
 import { isValidURL, formatURL } from "@/lib/urlUtils";
-import { submitScan } from "@/lib/api/dashboard";
 import { useState } from "react";
 import { TextField, Input, Form, Button, Text } from "react-aria-components";
-
-const DashboardPieChart = dynamic(
-  () => import("@/components/Dashboard/DashboardPieChart"),
-  { ssr: false }
-);
-const DashboardScatterPlotChart = dynamic(
-  () => import("@/components/Dashboard/DashboardScatterPlotChart"),
-  { ssr: false }
-);
+import useScan from "@/hooks/dashboard/useScan";
+import toast from "react-hot-toast";
+import DashboardDataGrid from "@/components/Dashboard/DashboardDataGrid";
+import DashboardLoader from "@/components/Dashboard/DashboardLoader";
+import DashboardEmptyState from "@/components/Dashboard/DashboardEmptyState";
 
 export default function Home() {
   const [url, setUrl] = useState("");
-  const [error, setError] = useState("");
+  const { scan, createScan, getScanResults, isLoading, error } = useScan();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-
     const formattedUrl = formatURL(url);
 
     if (!isValidURL(formattedUrl)) {
-      setError("Please enter a valid URL.");
+      toast.error("Please enter a valid URL");
       return;
     }
 
     try {
-      await submitScan(formattedUrl);
-      setUrl(""); // Clear the input on success
-      setError(""); // Clear any previous error
-    } catch (err: unknown) {
-      console.error("Error submitting form:", err);
-      setError("An error occurred. Please try again.");
+      const scanId = await createScan(formattedUrl);
+      setUrl("");
+      toast.success("Scan started");
+
+      await getScanResults(scanId);
+    } catch {
+      toast.error("An error occurred. Please try again.");
     }
   };
 
@@ -69,40 +59,15 @@ export default function Home() {
             Scan
           </Button>
         </Form>
+
         {error && <p className="text-red-500 mt-2">{error}</p>}
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <DashboardOverviewCard
-          metric="Total Pages"
-          value="656"
-          description="The total number of pages scanned"
-          icon={<Globe className="w-4 h-4 text-gray-500" />}
-        />
+      {isLoading && <DashboardLoader />}
 
-        <DashboardOverviewCard
-          metric="Avg. Image Size"
-          value="10.5 MB"
-          description="The average size of images on the page"
-          icon={<Paperclip className="w-4 h-4 text-gray-500" />}
-        />
+      {!scan && !isLoading && <DashboardEmptyState />}
 
-        <DashboardOverviewCard
-          metric="Total Load Time"
-          value="15.5s"
-          description="The total time it takes to load the page"
-          icon={<Bolt className="w-4 h-4 text-gray-500" />}
-        />
-      </section>
-
-      <section className="flex flex-row gap-4">
-        <DashboardPieChart />
-        <DashboardScatterPlotChart />
-      </section>
-
-      <section>
-        <DashboardTableOverview />
-      </section>
+      {scan && <DashboardDataGrid data={scan} />}
     </DashboardLayout>
   );
 }
