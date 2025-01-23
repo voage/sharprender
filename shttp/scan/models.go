@@ -10,6 +10,7 @@ import (
 type Scan struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	ScanID    string             `json:"scan_id" bson:"scan_id"`
+	UserID    string             `json:"user_id" bson:"user_id"`
 	URL       string             `json:"url" bson:"url"`
 	Images    []simage.Image     `json:"images" bson:"images"`
 	CreatedAt time.Time          `json:"created_at" bson:"created_at"`

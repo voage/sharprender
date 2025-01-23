@@ -13,6 +13,7 @@ func NewScanRoutes(mongoClient *mongo.Client) *chi.Mux {
 	router := chi.NewRouter()
 	router.Get("/{id}", handler.GetScanResults)
 	router.Post("/", handler.ScanURL)
+	router.Get("/history", handler.GetScanHistory)
 
 	return router
 }
