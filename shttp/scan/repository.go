@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type ScanRepository struct {
@@ -34,18 +35,18 @@ func (r *ScanRepository) Create(ctx context.Context, scan *Scan) (primitive.Obje
 }
 
 func (r *ScanRepository) FindMany(ctx context.Context, filter interface{}) ([]Scan, error) {
-    cursor, err := r.collection.Find(ctx, filter)
-    if err != nil {
-        return nil, err
-    }
-    defer cursor.Close(ctx)
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
 
-    var scans []Scan
-    if err = cursor.All(ctx, &scans); err != nil {
-        return nil, err
-    }
+	var scans []Scan
+	if err = cursor.All(ctx, &scans); err != nil {
+		return nil, err
+	}
 
-    return scans, nil
+	return scans, nil
 }
 
 // FindWithFilter fetches a scan document and filters its images using aggregation
@@ -83,4 +84,23 @@ func (r *ScanRepository) FindWithFilter(ctx context.Context, scanFilter, imageFi
 	}
 
 	return &results[0], nil
+}
+
+func (r *ScanRepository) GetScansOverview(ctx context.Context, filter interface{}) ([]Scan, error) {
+	opts := options.Find().SetProjection(bson.M{
+		"images": 0,
+	})
+
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var scans []Scan
+	if err = cursor.All(ctx, &scans); err != nil {
+		return nil, err
+	}
+
+	return scans, nil
 }

@@ -1,3 +1,4 @@
+import { ImageScanResult } from "@/types/scan";
 import React from "react";
 import {
   ScatterChart,
@@ -9,53 +10,53 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const mockImageData = [
-  {
-    id: 1,
-    fileName: "discord_icon.png",
-    fileSize: 107,
-    loadTime: 52,
-    format: "PNG",
-  },
-  {
-    id: 2,
-    fileName: "companyBanner.png",
-    fileSize: 40,
-    loadTime: 130,
-    format: "PNG",
-  },
-  {
-    id: 3,
-    fileName: "Google_logo.png",
-    fileSize: 83,
-    loadTime: 168,
-    format: "PNG",
-  },
-  {
-    id: 4,
-    fileName: "example_image.webp",
-    fileSize: 15,
-    loadTime: 20,
-    format: "WebP",
-  },
-  { id: 5, fileName: "logo.svg", fileSize: 10, loadTime: 15, format: "SVG" },
-];
+// Add this interface for our transformed data
+interface ScatterDataPoint {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  loadTime: number;
+  format: string;
+}
 
-const DashboardScatterPlotChart = () => {
+const DashboardScatterPlotChart = ({
+  images,
+}: {
+  images: ImageScanResult[];
+}) => {
+  // Transform ImageScanResult[] into scatter plot data
+  const scatterData: ScatterDataPoint[] = images.map((image) => ({
+    id: image.network.request_id,
+    fileName: image.src.split("/").pop() || "unknown",
+    // Convert bytes to KB and ensure it's a number
+    fileSize: Number((image.size / 1024).toFixed(2)),
+    // Use network.load_time and convert to ms
+    loadTime: Number((image.network.load_time * 1000).toFixed(2)),
+    format: image.format || "unknown",
+  }));
+
+  // Add console.log to debug the data
+  console.log("Scatter Data:", scatterData);
+
   const CustomTooltip = ({
     active,
     payload,
   }: {
     active?: boolean;
-    payload?: Array<{ name: string; value: number }>;
+    payload?: Array<any>;
   }) => {
     if (active && payload && payload.length) {
-      const data = payload[0];
+      const data = payload[0].payload;
       return (
         <div className="bg-white p-2 border border-gray-200 rounded-md shadow-sm">
-          <p className="text-sm font-medium mb-1">{data.name}</p>
-          <p className="text-sm text-gray-600">{`File Size: ${data.value} KB`}</p>
-          <p className="text-sm text-gray-600">{`Load Time: ${data.value} ms`}</p>
+          <p className="text-sm font-medium mb-1">{data.fileName}</p>
+          <p className="text-sm text-gray-600">
+            File Size: {data.fileSize.toFixed(2)} KB
+          </p>
+          <p className="text-sm text-gray-600">
+            Load Time: {data.loadTime.toFixed(2)} ms
+          </p>
+          <p className="text-sm text-gray-600">Format: {data.format}</p>
         </div>
       );
     }
@@ -93,7 +94,7 @@ const DashboardScatterPlotChart = () => {
           <Tooltip content={<CustomTooltip />} />
           <Scatter
             name="Images"
-            data={mockImageData}
+            data={scatterData}
             fill="#3182CE"
             stroke="#2C5282"
             strokeWidth={1}

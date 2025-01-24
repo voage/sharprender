@@ -1,5 +1,8 @@
-import Lottie from "lottie-react";
+import dynamic from "next/dynamic";
 import loadingAnimation from "@/public/animations/loading.json";
+
+const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
+
 const DashboardLoader = () => {
   return (
     <div className="relative min-h-[600px] flex flex-col items-center justify-center">

@@ -2,8 +2,8 @@ import Image from "next/image";
 
 export default function DecorativeBlock() {
   return (
-    <div className="rounded-lg shadow h-[95vh] w-[80vh] bg-primary-700 relative flex items-center justify-center">
-      <div className="relative flex justify-center items-center w-[600px] h-[400px] mb-16">
+    <div className="rounded-xl shadow-md min-h-[95vh]  bg-primary relative flex items-center justify-center">
+      <div className="relative flex justify-center items-center w-[600px] h-[400px]">
         <div className="absolute top-0 left-12">
           <h1 className="text-2xl font-bold text-white">
             Optimize, Accelerate, Dominate

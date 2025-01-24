@@ -77,7 +77,7 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 
 	imageScraper.SetNetworkProfile("No Throttling")
 
-	results, err := imageScraper.ScrapeImages(r.Context(), req.URL)
+	results, metadata, err := imageScraper.ScrapeImages(r.Context(), req.URL)
 	if err != nil {
 		log.Printf("Failed to scrape: %v", err)
 		http.Error(w, "Failed to scrape", http.StatusInternalServerError)
@@ -97,6 +97,7 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 	scan := Scan{
 		UserID:    req.UserID,
 		URL:       req.URL,
+		Metadata:  metadata,
 		Images:    resultsWithAI,
 		CreatedAt: time.Now(),
 	}
@@ -121,7 +122,7 @@ func (h *ScanHandler) GetScanHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	filter := bson.M{"user_id": userID}
 
-	scans, err := h.repo.FindMany(ctx, filter)
+	scans, err := h.repo.GetScansOverview(ctx, filter)
 	if err != nil {
 		http.Error(w, "Failed to fetch scan history", http.StatusInternalServerError)
 		return

@@ -2,13 +2,13 @@ import Image from "next/image";
 
 const DashboardEmptyState = () => {
   return (
-    <div className="flex flex-col items-center justify-center max-w-2xl mx-auto text-center gap-6">
+    <div className="flex flex-col h-full items-center justify-center max-w-2xl mx-auto text-center gap-6">
       <Image
         src="/images/Waiting.png"
         alt="Scan placeholder"
         width={400}
         height={400}
-        className="w-auto h-auto object-contain opacity-90"
+        className="object-contain opacity-90"
       />
       <div className="space-y-3">
         <h2 className="text-2xl font-semibold text-gray-800">
