@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 const sidebarItems = [
   {
     title: "Dashboard",
-    href: "/dashboard",
+    href: "/",
     icon: HomeIcon,
   },
   {

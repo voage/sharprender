@@ -95,8 +95,8 @@ const DashboardScatterPlotChart = ({
           <Scatter
             name="Images"
             data={scatterData}
-            fill="#3182CE"
-            stroke="#2C5282"
+            fill="hsl(var(--primary))"
+            stroke="hsl(var(--primary-foreground))"
             strokeWidth={1}
             r={6}
           />
