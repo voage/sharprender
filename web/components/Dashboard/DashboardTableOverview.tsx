@@ -55,6 +55,7 @@ const TableCell = ({
 };
 
 const DashboardTableOverview = ({ images }: DashboardTableOverviewProps) => {
+  const filteredImages = images.filter((image) => image.size > 0);
   return (
     <div className="w-full rounded-lg border border-gray-100 shadow-sm shadow-gray-100">
       <div className="px-6 py-4 border-b border-gray-100">
@@ -72,7 +73,7 @@ const DashboardTableOverview = ({ images }: DashboardTableOverviewProps) => {
           <TableColumn isRowHeader>Actions</TableColumn>
         </TableHeader>
         <TableBody>
-          {images.map((image, index) => {
+          {filteredImages.map((image, index) => {
             const loadTimeStatus =
               image.network.load_time < 100
                 ? "success"
@@ -97,8 +98,8 @@ const DashboardTableOverview = ({ images }: DashboardTableOverviewProps) => {
                 <TableCell>{image.alt || "No alt text"}</TableCell>
                 <TableCell>{`${image.width}x${image.height} px`}</TableCell>
                 <TableCell>{`${(image.size / 1024).toFixed(1)} KB`}</TableCell>
-                <TableCell>{image.format.toUpperCase()}</TableCell>
-                <TableCell>{`${image.network.load_time.toFixed(
+                <TableCell>{image.format.split("/")[1]}</TableCell>
+                <TableCell>{`${(image.network.load_time * 1000).toFixed(
                   0
                 )} ms`}</TableCell>
                 <TableCell>

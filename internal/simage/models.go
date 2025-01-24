@@ -1,8 +1,11 @@
 package simage
 
 import (
+	"time"
+
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Recommendation struct {
@@ -100,4 +103,24 @@ type TimingInfo struct {
 	TransferSize        float64 `json:"transfer_size"`
 	EncodedBodySize     float64 `json:"encoded_body_size"`
 	DecodedBodySize     float64 `json:"decoded_body_size"`
+}
+
+type WebsiteMetadata struct {
+	Title       string `json:"title" bson:"title"`
+	Description string `json:"description" bson:"description"`
+	Favicon     string `json:"favicon" bson:"favicon"`
+	OGImage     string `json:"og_image" bson:"og_image"`
+	OGTitle     string `json:"og_title" bson:"og_title"`
+	OGDesc      string `json:"og_description" bson:"og_description"`
+	Language    string `json:"language" bson:"language"`
+}
+
+type Scan struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	ScanID    string             `json:"scan_id" bson:"scan_id"`
+	UserID    string             `json:"user_id" bson:"user_id"`
+	URL       string             `json:"url" bson:"url"`
+	Metadata  WebsiteMetadata    `json:"metadata" bson:"metadata"`
+	Images    []Image            `json:"images" bson:"images"`
+	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
 }

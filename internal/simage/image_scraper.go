@@ -12,6 +12,7 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+// TODO: Take scripts out in their own files
 const (
 	defaultTimeout = 10 * time.Second
 	evalScript     = `
@@ -57,6 +58,63 @@ const (
 			}));
 	})();
 	`
+	metadataScript = `
+	(() => {
+        function getMetaContent(selectors) {
+            for (const selector of selectors) {
+                const element = document.querySelector(selector);
+                if (element && element.content) {
+                    return element.content;
+                }
+            }
+            return "";
+        }
+
+        function getFavicon() {
+            // Check various favicon possibilities in order of preference
+            const selectors = [
+                'link[rel="icon"][type="image/x-icon"]',
+                'link[rel="shortcut icon"]',
+                'link[rel="icon"]',
+                'link[rel="apple-touch-icon"]'
+            ];
+            
+            for (const selector of selectors) {
+                const link = document.querySelector(selector);
+                if (link && link.href) {
+                    return link.href;
+                }
+            }
+
+            // Fallback to default favicon location
+            return new URL('/favicon.ico', window.location.origin).href;
+        }
+
+        return {
+            title: document.title || "",
+            description: getMetaContent([
+                'meta[name="description"]',
+                'meta[property="og:description"]',
+                'meta[name="twitter:description"]'
+            ]),
+            favicon: getFavicon(),
+            ogImage: getMetaContent([
+                'meta[property="og:image"]',
+                'meta[name="twitter:image"]',
+                'meta[name="thumbnail"]'
+            ]),
+            ogTitle: getMetaContent([
+                'meta[property="og:title"]',
+                'meta[name="twitter:title"]'
+            ]),
+            ogDescription: getMetaContent([
+                'meta[property="og:description"]',
+                'meta[name="twitter:description"]'
+            ]),
+            language: document.documentElement.lang || navigator.language || ""
+        };
+    })()
+	`
 )
 
 type ImageScraper struct {
@@ -97,7 +155,7 @@ func (s *ImageScraper) SetNetworkProfile(profile string) error {
 	return nil
 }
 
-func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Image, error) {
+func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Image, WebsiteMetadata, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -121,6 +179,7 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 		handleImageEvents(ev, imagesByRequestID)
 	})
 
+	var metadata WebsiteMetadata
 	var imgElements []Image
 
 	err := chromedp.Run(ctx,
@@ -142,6 +201,7 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 		}),
 		chromedp.Navigate(targetURL),
 		chromedp.Sleep(2*time.Second),
+		chromedp.Evaluate(metadataScript, &metadata),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			_, exp, err := runtime.Evaluate(
 				scrollScript,
@@ -158,14 +218,14 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("error navigating to URL: %w", err)
+		return nil, WebsiteMetadata{}, fmt.Errorf("error navigating to URL: %w", err)
 	}
 
 	err = chromedp.Run(ctx,
 		chromedp.Evaluate(evalScript, &imgElements),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("error extracting images from DOM: %w", err)
+		return nil, WebsiteMetadata{}, fmt.Errorf("error extracting images from DOM: %w", err)
 	}
 
 	var images []Image
@@ -224,7 +284,7 @@ func (s *ImageScraper) ScrapeImages(ctx context.Context, targetURL string) ([]Im
 	}
 
 	log.Printf("Found %d unique images", len(images))
-	return images, nil
+	return images, metadata, nil
 }
 
 func handleImageEvents(ev interface{}, imagesByRequestID map[network.RequestID]Image) {
@@ -297,6 +357,12 @@ func handleLoadingFinished(ev *network.EventLoadingFinished, imagesByRequestID m
 	if img, exists := imagesByRequestID[ev.RequestID]; exists {
 		img.Network.EncodedDataLength = int(ev.EncodedDataLength)
 		img.Size = int(ev.EncodedDataLength)
+
+		if img.Network.RequestTime != nil {
+			totalLoad := ev.Timestamp.Time().Sub(img.Network.RequestTime.Time()).Seconds()
+			img.Network.LoadTime = totalLoad
+		}
+
 		imagesByRequestID[ev.RequestID] = img
 	}
 }

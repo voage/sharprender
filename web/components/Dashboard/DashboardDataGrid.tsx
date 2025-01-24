@@ -1,4 +1,4 @@
-import { Scan } from "@/types/scan";
+import { ScanResult } from "@/types/scan";
 import DashboardOverviewCard from "./DashboardOverviewCard";
 import { Globe, Paperclip, Bolt } from "lucide-react";
 import DashboardTableOverview from "./DashboardTableOverview";
@@ -13,10 +13,15 @@ const DashboardScatterPlotChart = dynamic(
 );
 
 interface DashboardDataGridProps {
-  data: Scan;
+  data: ScanResult;
 }
 
 const DashboardDataGrid = ({ data }: DashboardDataGridProps) => {
+  const avgLoadTime =
+    data.images
+      .map((image) => image.network.load_time)
+      .reduce((a, b) => a + b, 0) / data.images.length;
+
   return (
     <>
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -28,7 +33,7 @@ const DashboardDataGrid = ({ data }: DashboardDataGridProps) => {
         />
         <DashboardOverviewCard
           metric="Avg. Load Time"
-          value={`${data.aggregations.avgLoadTime}s`}
+          value={`${(avgLoadTime * 1000).toFixed(2)} ms`}
           description="The average time it takes to load the page"
           icon={<Globe className="w-4 h-4 text-gray-500" />}
         />
@@ -46,7 +51,7 @@ const DashboardDataGrid = ({ data }: DashboardDataGridProps) => {
           formatDistribution={data.aggregations.formatDistribution}
           totalImages={data.aggregations.imageCount}
         />
-        <DashboardScatterPlotChart />
+        <DashboardScatterPlotChart images={data.images} />
       </section>
 
       <section>

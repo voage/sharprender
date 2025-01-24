@@ -6,7 +6,7 @@ import useScan from "@/hooks/dashboard/useScan";
 import toast from "react-hot-toast";
 import DashboardDataGrid from "@/components/Dashboard/DashboardDataGrid";
 import DashboardLoader from "@/components/Dashboard/DashboardLoader";
-import DashboardEmptyState from "@/components/Dashboard/DashboardEmptyState";
+import DashboardHistory from "@/components/Dashboard/DashboardHistory";
 
 export default function Home() {
   const [url, setUrl] = useState("");
@@ -63,9 +63,9 @@ export default function Home() {
         {error && <p className="text-red-500 mt-2">{error}</p>}
       </section>
 
-      {isLoading && <DashboardLoader />}
+      {!scan && !isLoading && <DashboardHistory />}
 
-      {!scan && !isLoading && <DashboardEmptyState />}
+      {isLoading && <DashboardLoader />}
 
       {scan && <DashboardDataGrid data={scan} />}
     </DashboardLayout>
