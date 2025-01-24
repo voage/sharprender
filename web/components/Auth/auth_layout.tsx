@@ -31,7 +31,7 @@ export default function AuthLayout({
         </div>
       </div>
       {/* Right Panel - Decorative */}
-      <DecorativeBlock />
+        <DecorativeBlock />
     </div>
   );
 }
