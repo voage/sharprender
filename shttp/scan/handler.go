@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/voage/sharprender-api/internal/simage"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -49,7 +50,8 @@ func (h *ScanHandler) GetScanResults(w http.ResponseWriter, r *http.Request) {
 
 func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		URL string `json:"url"`
+		UserID string `json:"user_id"`
+		URL    string `json:"url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -58,6 +60,10 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 
 	if req.URL == "" {
 		http.Error(w, "Missing URL parameter", http.StatusBadRequest)
+		return
+	}
+	if req.UserID == "" {
+		http.Error(w, "Missing user_id parameter", http.StatusBadRequest)
 		return
 	}
 
@@ -89,6 +95,7 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	scan := Scan{
+		UserID:    req.UserID,
 		URL:       req.URL,
 		Images:    resultsWithAI,
 		CreatedAt: time.Now(),
@@ -103,4 +110,25 @@ func (h *ScanHandler) ScanURL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"scan_id": id.Hex()})
+}
+
+func (h *ScanHandler) GetScanHistory(w http.ResponseWriter, r *http.Request) {
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+	ctx := r.Context()
+	filter := bson.M{"user_id": userID}
+
+	scans, err := h.repo.FindMany(ctx, filter)
+	if err != nil {
+		http.Error(w, "Failed to fetch scan history", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"scans":   scans,
+	})
 }

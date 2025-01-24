@@ -33,6 +33,21 @@ func (r *ScanRepository) Create(ctx context.Context, scan *Scan) (primitive.Obje
 	return result.InsertedID.(primitive.ObjectID), nil
 }
 
+func (r *ScanRepository) FindMany(ctx context.Context, filter interface{}) ([]Scan, error) {
+    cursor, err := r.collection.Find(ctx, filter)
+    if err != nil {
+        return nil, err
+    }
+    defer cursor.Close(ctx)
+
+    var scans []Scan
+    if err = cursor.All(ctx, &scans); err != nil {
+        return nil, err
+    }
+
+    return scans, nil
+}
+
 // FindWithFilter fetches a scan document and filters its images using aggregation
 func (r *ScanRepository) FindWithFilter(ctx context.Context, scanFilter, imageFilter bson.M) (*Scan, error) {
 	// MongoDB aggregation pipeline
