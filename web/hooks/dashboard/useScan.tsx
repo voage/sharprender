@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Scan } from "@/types/scan";
+import { ScanResult } from "@/types/scan";
 import { fetcher } from "@/lib/fetcher";
 import { useUser } from "@clerk/nextjs";
 
 const useScan = () => {
-  const [scan, setScan] = useState<Scan | null>(null);
+  const [scan, setScan] = useState<ScanResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useUser();
@@ -36,7 +36,7 @@ const useScan = () => {
   const getScanResults = async (scanId: string): Promise<void> => {
     setIsLoading(true);
     try {
-      const response = await fetcher<Scan>(`/scan/${scanId}`);
+      const response = await fetcher<ScanResult>(`/scan/${scanId}`);
       setScan(response);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);

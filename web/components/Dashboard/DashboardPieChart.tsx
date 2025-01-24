@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const COLORS = ["#0EA5E9", "#0284C7", "#0369A1", "#0C4A6E"];
+const COLORS = ["#7d5fbf", "#9d7fd9", "#644c99", "#523885"];
 
 interface DashboardPieChartProps {
   formatDistribution: Record<string, number>;
