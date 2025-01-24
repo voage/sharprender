@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Scan } from "@/types/scan";
 import { fetcher } from "@/lib/fetcher";
-import { useUser } from "@clerk/clerk-react";
+import { useUser } from "@clerk/nextjs";
 
 const useScan = () => {
   const [scan, setScan] = useState<Scan | null>(null);
