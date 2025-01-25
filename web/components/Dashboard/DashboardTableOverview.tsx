@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { Table } from "react-aria-components";
+import { useState } from "react";
 
 import {
   Cell,
@@ -55,6 +56,7 @@ const TableCell = ({
 };
 
 const DashboardTableOverview = ({ images }: DashboardTableOverviewProps) => {
+  const [isOpen, setOpen] = useState(false);
   const filteredImages = images.filter((image) => image.size > 0);
   return (
     <div className="w-full rounded-lg border border-gray-100 shadow-sm shadow-gray-100">
@@ -119,9 +121,12 @@ const DashboardTableOverview = ({ images }: DashboardTableOverviewProps) => {
                   </span>
                 </TableCell>
                 <TableCell>
-                  <DialogTrigger>
+                  <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
                     <Button className="text-sm text-gray-700">View</Button>
-                    <DashboardImageDetailModal image={image} />
+                    <DashboardImageDetailModal
+                      image={image}
+                      onClose={() => setOpen(false)}
+                    />
                   </DialogTrigger>
                 </TableCell>
               </Row>

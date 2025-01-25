@@ -3,7 +3,13 @@ import { CheckCircle2Icon, NetworkIcon, SparkleIcon } from "lucide-react";
 import Image from "next/image";
 import { Button, Dialog, Modal } from "react-aria-components";
 
-const DashboardImageDetailModal = ({ image }: { image: ImageScanResult }) => {
+const DashboardImageDetailModal = ({
+  image,
+  onClose,
+}: {
+  image: ImageScanResult;
+  onClose: () => void;
+}) => {
   return (
     <Modal className="fixed inset-0 z-50 overflow-auto bg-black/25 flex min-h-full items-center justify-center p-4">
       <Dialog className="w-full max-w-4xl rounded-lg bg-white p-6 shadow-xl flex flex-col gap-4">
@@ -150,7 +156,10 @@ const DashboardImageDetailModal = ({ image }: { image: ImageScanResult }) => {
               Optimize
             </Button>
 
-            <Button className="bg-gray-200 px-4 py-2 rounded-lg text-gray-800">
+            <Button
+              onPress={onClose}
+              className="bg-gray-200 px-4 py-2 rounded-lg text-gray-800"
+            >
               Close
             </Button>
           </div>
