@@ -158,7 +158,7 @@ const DashboardImageDetailModal = ({
 
             <Button
               onPress={onClose}
-              className="bg-gray-200 px-4 py-2 rounded-lg text-gray-800"
+              className="bg-gray-200 px-4 py-2 rounded-lg text-gray-800 hover:bg-gray-400"
             >
               Close
             </Button>
